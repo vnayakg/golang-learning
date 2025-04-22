@@ -139,7 +139,7 @@ func TestItShouldFilterOddOrGreaterThanTen(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		actual := filterNumbersOnAnyPredicates(testCase.input, []func(int) bool{isOdd, isGreaterThanTen})
+		actual := filterItemsOnAnyPredicates(testCase.input, []func(int) bool{isOdd, isGreaterThanTen})
 
 		if !reflect.DeepEqual(actual, testCase.expected) {
 
