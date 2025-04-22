@@ -1,21 +1,19 @@
 package filter
 
 func filterEvenNumbers(numbers []int) []int {
-	evenNumbers := make([]int, 0, len(numbers))
-	for _, num := range numbers {
-		if num % 2 == 0 {
-			evenNumbers = append(evenNumbers, num)
-		}
-	}
-	return evenNumbers
+	return filterNumbersOnPredicate(numbers, func(num int) bool { return num%2 == 0 })
 }
 
 func filterOddNumbers(numbers []int) []int {
-	oddNumbers := make([]int, 0, len(numbers))
+	return filterNumbersOnPredicate(numbers, func(num int) bool { return num%2 != 0 })
+}
+
+func filterNumbersOnPredicate(numbers []int, predicate func(int) bool) []int {
+	filteredNumbers := make([]int, 0, len(numbers))
 	for _, num := range numbers {
-		if num % 2 != 0 {
-			oddNumbers = append(oddNumbers, num)
+		if predicate(num) {
+			filteredNumbers = append(filteredNumbers, num)
 		}
 	}
-	return oddNumbers
+	return filteredNumbers
 }
