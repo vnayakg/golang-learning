@@ -12,8 +12,12 @@ func filterPrimeNumbers(numbers []int) []int {
 	return filterNumbersOnPredicate(numbers, isPrime)
 }
 
-func filterOddPrimeNumbers(number []int) []int {
-	return filterNumbersOnPredicate(number, func(num int) bool { return isOdd(num) && isPrime(num) })
+func filterOddPrimeNumbers(numbers []int) []int {
+	return filterNumbersOnPredicate(numbers, func(num int) bool { return isOdd(num) && isPrime(num) })
+}
+
+func filterEvenAndMultipleOfFiveNumbers(numbers []int) []int {
+	return filterNumbersOnPredicate(numbers, func(num int) bool { return isEven(num) && isMultipleOfFive(num) })
 }
 
 func isOdd(num int) bool { return num%2 != 0 }
@@ -43,4 +47,8 @@ func isPrime(number int) bool {
 		}
 	}
 	return true
+}
+
+func isMultipleOfFive(number int) bool {
+	return number%5 == 0
 }

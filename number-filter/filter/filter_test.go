@@ -86,3 +86,23 @@ func TestItShouldFilterOddPrimeNumbers(t *testing.T) {
 		}
 	}
 }
+
+func TestItShouldFilterEvenMultipleOfFiveNumbers(t *testing.T) {
+	testCases := []struct {
+		input    []int
+		expected []int
+	}{
+		{[]int{}, []int{}},
+		{[]int{1, 5, 15, 4}, []int{}},
+		{[]int{10, 20, 30, 5, 8}, []int{10, 20, 30}},
+	}
+
+	for _, testCase := range testCases {
+		actual := filterEvenAndMultipleOfFiveNumbers(testCase.input)
+
+		if !reflect.DeepEqual(actual, testCase.expected) {
+
+			t.Errorf("For input %v, expected %v, but got %v", testCase.input, testCase.expected, actual)
+		}
+	}
+}
