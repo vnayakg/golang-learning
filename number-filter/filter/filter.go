@@ -1,16 +1,24 @@
 package filter
 
 func filterEvenNumbers(numbers []int) []int {
-	return filterNumbersOnPredicate(numbers, func(num int) bool { return num%2 == 0 })
+	return filterNumbersOnPredicate(numbers, isEven)
 }
 
 func filterOddNumbers(numbers []int) []int {
-	return filterNumbersOnPredicate(numbers, func(num int) bool { return num%2 != 0 })
+	return filterNumbersOnPredicate(numbers, isOdd)
 }
 
 func filterPrimeNumbers(numbers []int) []int {
 	return filterNumbersOnPredicate(numbers, isPrime)
 }
+
+func filterOddPrimeNumbers(number []int) []int {
+	return filterNumbersOnPredicate(number, func(num int) bool { return isOdd(num) && isPrime(num) })
+}
+
+func isOdd(num int) bool { return num%2 != 0 }
+
+func isEven(num int) bool { return num%2 == 0 }
 
 func filterNumbersOnPredicate(numbers []int, predicate func(int) bool) []int {
 	filteredNumbers := make([]int, 0, len(numbers))

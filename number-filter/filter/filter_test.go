@@ -66,3 +66,23 @@ func TestItShouldFilterPrimeNumbers(t *testing.T) {
 		}
 	}
 }
+
+func TestItShouldFilterOddPrimeNumbers(t *testing.T) {
+	testCases := []struct {
+		input    []int
+		expected []int
+	}{
+		{[]int{}, []int{}},
+		{[]int{-1, 1, 4}, []int{}},
+		{[]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 37, 101}, []int{3, 5, 7, 37, 101}},
+	}
+
+	for _, testCase := range testCases {
+		actual := filterOddPrimeNumbers(testCase.input)
+
+		if !reflect.DeepEqual(actual, testCase.expected) {
+
+			t.Errorf("For input %v, expected %v, but got %v", testCase.input, testCase.expected, actual)
+		}
+	}
+}
