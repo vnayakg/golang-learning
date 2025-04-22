@@ -47,6 +47,25 @@ func isAllApplicable(number int, predicates []func(int) bool) bool {
 	return true
 }
 
+func filterNumbersOnAnyPredicates(numbers []int, predicates []func(int) bool) []int {
+	filteredNumbers := make([]int, 0, len(numbers))
+	for _, num := range numbers {
+		if isAnyApplicable(num, predicates) {
+			filteredNumbers = append(filteredNumbers, num)
+		}
+	}
+	return filteredNumbers
+}
+
+func isAnyApplicable(number int, predicates []func(int) bool) bool {
+	for _, predicate := range predicates {
+		if predicate(number) {
+			return true
+		}
+	}
+	return false
+}
+
 func isPrime(number int) bool {
 	if number <= 1 {
 		return false

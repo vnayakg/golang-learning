@@ -126,3 +126,24 @@ func TestItShouldFilterOddAndMultipleOfThreeAndGreaterThatnTenNumbers(t *testing
 		}
 	}
 }
+
+func TestItShouldFilterOddOrGreaterThanTen(t *testing.T) {
+	testCases := []struct {
+		input    []int
+		expected []int
+	}{
+		{[]int{}, []int{}},
+		{[]int{1, 2, 3}, []int{1, 3}},
+		{[]int{12, 14}, []int{12, 14}},
+		{[]int{1, 2, 3, 5, 11, 12, 14}, []int{1, 3, 5, 11, 12, 14}},
+	}
+
+	for _, testCase := range testCases {
+		actual := filterNumbersOnAnyPredicates(testCase.input, []func(int) bool{isOdd, isGreaterThanTen})
+
+		if !reflect.DeepEqual(actual, testCase.expected) {
+
+			t.Errorf("For input %v, expected %v, but got %v", testCase.input, testCase.expected, actual)
+		}
+	}
+}
