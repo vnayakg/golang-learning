@@ -24,10 +24,6 @@ func filterOddAndMultipleOfThreeAndGreaterThanTen(numbers []int) []int {
 	return filterItemsOnAllPredicates(numbers, []func(int) bool{isOdd, isMultipleOfThree, isGreaterThanTen})
 }
 
-func isOdd(num int) bool { return num%2 != 0 }
-
-func isEven(num int) bool { return num%2 == 0 }
-
 func filterItemsOnAllPredicates[T any](items []T, predicates []func(T) bool) []T {
 	filteredItems := make([]T, 0, len(items))
 	for _, item := range items {
@@ -65,6 +61,10 @@ func isAnyApplicable[T any](item T, predicates []func(T) bool) bool {
 	}
 	return false
 }
+
+func isOdd(num int) bool { return num%2 != 0 }
+
+func isEven(num int) bool { return num%2 == 0 }
 
 func isPrime(number int) bool {
 	if number <= 1 {
