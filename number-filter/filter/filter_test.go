@@ -106,3 +106,23 @@ func TestItShouldFilterEvenMultipleOfFiveNumbers(t *testing.T) {
 		}
 	}
 }
+
+func TestItShouldFilterOddAndMultipleOfThreeAndGreaterThatnTenNumbers(t *testing.T) {
+	testCases := []struct {
+		input    []int
+		expected []int
+	}{
+		{[]int{}, []int{}},
+		{[]int{3, 6, 12}, []int{}},
+		{[]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, []int{15}},
+	}
+
+	for _, testCase := range testCases {
+		actual := filterOddAndMultipleOfThreeAndGreaterThanTen(testCase.input)
+
+		if !reflect.DeepEqual(actual, testCase.expected) {
+
+			t.Errorf("For input %v, expected %v, but got %v", testCase.input, testCase.expected, actual)
+		}
+	}
+}

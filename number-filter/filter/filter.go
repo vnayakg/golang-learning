@@ -20,6 +20,10 @@ func filterEvenAndMultipleOfFiveNumbers(numbers []int) []int {
 	return filterNumbersOnPredicate(numbers, func(num int) bool { return isEven(num) && isMultipleOfFive(num) })
 }
 
+func filterOddAndMultipleOfThreeAndGreaterThanTen(numbers []int) []int {
+	return filterNumbersOnPredicate(numbers, func(num int) bool { return isOdd(num) && isMultipleOfThree(num) && isGreaterThanTen(num) })
+}
+
 func isOdd(num int) bool { return num%2 != 0 }
 
 func isEven(num int) bool { return num%2 == 0 }
@@ -51,4 +55,12 @@ func isPrime(number int) bool {
 
 func isMultipleOfFive(number int) bool {
 	return number%5 == 0
+}
+
+func isMultipleOfThree(number int) bool {
+	return number%3 == 0
+}
+
+func isGreaterThanTen(number int) bool {
+	return number > 10
 }
