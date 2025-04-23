@@ -1,30 +1,32 @@
 package filter
 
 func filterEvenNumbers(numbers []int) []int {
-	return filterItemsOnAllPredicates(numbers, []func(int) bool{isEven})
+	return filterItemsOnAllPredicates(numbers, []Predicate[int]{isEven})
 }
 
 func filterOddNumbers(numbers []int) []int {
-	return filterItemsOnAllPredicates(numbers, []func(int) bool{isOdd})
+	return filterItemsOnAllPredicates(numbers, []Predicate[int]{isOdd})
 }
 
 func filterPrimeNumbers(numbers []int) []int {
-	return filterItemsOnAllPredicates(numbers, []func(int) bool{isPrime})
+	return filterItemsOnAllPredicates(numbers, []Predicate[int]{isPrime})
 }
 
 func filterOddPrimeNumbers(numbers []int) []int {
-	return filterItemsOnAllPredicates(numbers, []func(int) bool{isOdd, isPrime})
+	return filterItemsOnAllPredicates(numbers, []Predicate[int]{isOdd, isPrime})
 }
 
 func filterEvenAndMultipleOfFiveNumbers(numbers []int) []int {
-	return filterItemsOnAllPredicates(numbers, []func(int) bool{isEven, isMultipleOfFive})
+	return filterItemsOnAllPredicates(numbers, []Predicate[int]{isEven, isMultipleOfFive})
 }
 
 func filterOddAndMultipleOfThreeAndGreaterThanTen(numbers []int) []int {
-	return filterItemsOnAllPredicates(numbers, []func(int) bool{isOdd, isMultipleOfThree, isGreaterThanTen})
+	return filterItemsOnAllPredicates(numbers, []Predicate[int]{isOdd, isMultipleOfThree, isGreaterThanTen})
 }
 
-func filterItemsOnAllPredicates[T any](items []T, predicates []func(T) bool) []T {
+type Predicate[T any] func(T) bool
+
+func filterItemsOnAllPredicates[T any](items []T, predicates []Predicate[T]) []T {
 	filteredItems := make([]T, 0, len(items))
 	for _, item := range items {
 		if isAllApplicable(item, predicates) {
@@ -34,7 +36,7 @@ func filterItemsOnAllPredicates[T any](items []T, predicates []func(T) bool) []T
 	return filteredItems
 }
 
-func isAllApplicable[T any](item T, predicates []func(T) bool) bool {
+func isAllApplicable[T any](item T, predicates []Predicate[T]) bool {
 	for _, predicate := range predicates {
 		if !predicate(item) {
 			return false
@@ -43,7 +45,7 @@ func isAllApplicable[T any](item T, predicates []func(T) bool) bool {
 	return true
 }
 
-func filterItemsOnAnyPredicates[T any](items []T, predicates []func(T) bool) []T {
+func filterItemsOnAnyPredicates[T any](items []T, predicates []Predicate[T]) []T {
 	filteredItems := make([]T, 0, len(items))
 	for _, item := range items {
 		if isAnyApplicable(item, predicates) {
@@ -53,7 +55,7 @@ func filterItemsOnAnyPredicates[T any](items []T, predicates []func(T) bool) []T
 	return filteredItems
 }
 
-func isAnyApplicable[T any](item T, predicates []func(T) bool) bool {
+func isAnyApplicable[T any](item T, predicates []Predicate[T]) bool {
 	for _, predicate := range predicates {
 		if predicate(item) {
 			return true
