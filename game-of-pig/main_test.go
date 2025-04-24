@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os"
+	"reflect"
 	"testing"
 )
 
@@ -102,35 +102,139 @@ func TestPlay_ShouldPlayGivenNumberOfGames(t *testing.T) {
 	}
 }
 
-func TestParseArgs_ShouldNotGiveErrorForValidArgs(t *testing.T) {
-	os.Args = []string{"cmd", "5", "8"}
-
-	p1, p2, err := parseArgs()
-
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
+func TestParseArgs_ShouldParseForValidArgs(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected *ParsedArg
+	}{
+		{"5", &ParsedArg{Value: 5, IsRange: false}},
+		{"5-100", &ParsedArg{IsRange: true, Range: Range{5, 100}}},
 	}
-	if p1 != 5 || p2 != 8 {
-		t.Errorf("Expected 5 and 8, got %d and %d", p1, p2)
+
+	for _, testCase := range testCases {
+		actual, err := parseArg(testCase.input)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		if !reflect.DeepEqual(actual, testCase.expected) {
+			t.Errorf("Expected %v, got %v", testCase.expected, actual)
+		}
 	}
 }
 
 func TestParseArgs_ShouldGiveErrorForInvalidArgs(t *testing.T) {
-	cases := [][]string{
-		{"program"},
-		{"program", "5"},
-		{"program", "x", "10"},
-		{"program", "5", "x"},
-		{"program", "0", "10"},
-		{"program", "5", "0"},
+	testCases := []struct {
+		input string
+	}{
+		{"a"},
+		{"0"},
+		{"0-1"},
+		{"1-"},
+		{"-"},
+		{"-10"},
+		{"0-100"},
+		{"1-101"},
 	}
 
-	for _, args := range cases {
-		os.Args = args
+	for _, testCase := range testCases {
+		_, err := parseArg(testCase.input)
 
-		_, _, err := parseArgs()
 		if err == nil {
-			t.Errorf("Expected error for args: %v", args)
+			t.Errorf("Expected error for %v, got %v", testCase.input, err)
 		}
+	}
+}
+
+func TestRun_FixedVsFixed(t *testing.T) {
+	called := false
+	//cleanup mocks
+	originalPlayFixedStrategyAgainstFixedStrategy := playFixedStrategyAgainstFixedStrategy
+	defer func() { playFixedStrategyAgainstFixedStrategy = originalPlayFixedStrategyAgainstFixedStrategy }()
+	playFixedStrategyAgainstFixedStrategy = func(a, b int) (*Player, *Player) {
+		called = true
+		if a != 5 || b != 6 {
+			t.Errorf("unexpected arguments: got %d and %d", a, b)
+		}
+		return &Player{}, &Player{}
+	}
+
+	err := run([]string{"5", "6"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Error("playFixedStrategyAgainstFixedStrategy was not called")
+	}
+}
+
+func TestRun_FixedVsVariable(t *testing.T) {
+	called := false
+	//cleanup mocks
+	originalPlayFixedStrategyAgainstVariableStrategy := playFixedStrategyAgainstVariableStrategy
+	defer func() { playFixedStrategyAgainstVariableStrategy = originalPlayFixedStrategyAgainstVariableStrategy }()
+	playFixedStrategyAgainstVariableStrategy = func(a int, b Range) []*[2]*Player {
+		called = true
+		if (a != 5 || b != Range{1, 100}) {
+			t.Errorf("unexpected arguments: got %d and %d", a, b)
+		}
+		return []*[2]*Player{}
+	}
+
+	err := run([]string{"5", "1-100"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Error("playFixedStrategyAgainstFixedStrategy was not called")
+	}
+}
+
+func TestPlayFixedVsFixed_ReturnsCorrectPlayers(t *testing.T) {
+	called := false
+	//cleanup mocks
+	originalPlay := play
+	defer func() { play = originalPlay }()
+	play = func(p1, p2 *Player) {
+		called = true
+		p1.wins = 1
+		p2.wins = 99
+	}
+
+	p1, p2 := playFixedStrategyAgainstFixedStrategy(5, 6)
+	if !called {
+		t.Fatal("play was not called")
+	}
+	if p1.wins != 1 || p2.wins != 99 {
+		t.Errorf("unexpected hold capacities: %v, %v", p1.wins, p2.wins)
+	}
+}
+
+func TestPlayFixedVsVariable_ReturnsCorrectPlayerPairs(t *testing.T) {
+	var calledWith [][2]int
+	//cleanup mocks
+	originalPlay := play
+	defer func() { play = originalPlay }()
+	play = func(p1, p2 *Player) {
+		calledWith = append(calledWith, [2]int{p1.holdCapacity, p2.holdCapacity})
+	}
+
+	pairs := playFixedStrategyAgainstVariableStrategy(5, Range{Start: 1, End: 2})
+
+	if len(pairs) != 2 {
+		t.Fatalf("expected 2 pairs, got %d", len(pairs))
+	}
+	expected := [][2]int{
+		{5, 1},
+		{5, 2},
+	}
+	for i, pair := range pairs {
+		got := [2]int{pair[0].holdCapacity, pair[1].holdCapacity}
+		if got != expected[i] {
+			t.Errorf("at index %d: expected %v, got %v", i, expected[i], got)
+		}
+	}
+	if !reflect.DeepEqual(calledWith, expected) {
+		t.Errorf("play called with unexpected values. got %v, want %v", calledWith, expected)
 	}
 }

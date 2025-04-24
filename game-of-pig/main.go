@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -40,7 +41,31 @@ func rollDice() int {
 	return rand.IntN(diceFaceCount) + 1
 }
 
-func play(playerOne, playerTwo *Player) {
+var playFixedStrategyAgainstFixedStrategy = func(p1HoldCapacity int, p2HoldCapacity int) (*Player, *Player) {
+	playerOne := Player{id: "1", holdCapacity: p1HoldCapacity}
+	playerTwo := Player{id: "2", holdCapacity: p2HoldCapacity}
+
+	play(&playerOne, &playerTwo)
+	return &playerOne, &playerTwo
+}
+
+var playFixedStrategyAgainstVariableStrategy = func(p1HoldCapacity int, p2HoldRange Range) []*[2]*Player {
+	var results []*[2]*Player
+	for p2HoldCapacity := p2HoldRange.Start; p2HoldCapacity <= p2HoldRange.End; p2HoldCapacity++ {
+		if p1HoldCapacity == p2HoldCapacity {
+			continue
+		}
+
+		playerOne := Player{id: "1", holdCapacity: p1HoldCapacity}
+		playerTwo := Player{id: "2", holdCapacity: p2HoldCapacity}
+
+		play(&playerOne, &playerTwo)
+		results = append(results, &[2]*Player{&playerOne, &playerTwo})
+	}
+	return results
+}
+
+var play = func(playerOne, playerTwo *Player) {
 	for range totalGames {
 		currentPlayer := playerOne
 
@@ -72,38 +97,77 @@ func formatResult(p1, p2 *Player) string {
 	)
 }
 
-func parseArgs() (int, int, error) {
-	if len(os.Args) < 3 {
-		return 0, 0, fmt.Errorf("missing command line arguments")
+type Range struct {
+	Start int
+	End   int
+}
+
+type ParsedArg struct {
+	IsRange bool
+	Value   int
+	Range   Range
+}
+
+func parseArg(arg string) (*ParsedArg, error) {
+	if strings.Contains(arg, "-") {
+		parts := strings.Split(arg, "-")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid range format: %s", arg)
+		}
+		start, err1 := strconv.Atoi(parts[0])
+		end, err2 := strconv.Atoi(parts[1])
+		if err1 != nil || err2 != nil {
+			return nil, fmt.Errorf("invalid range numbers in: %s", arg)
+		}
+		if start <= 0 || end <= 0 || start > 100 || end > 100 {
+			return nil, fmt.Errorf("invalid range numbers in: %s", arg)
+		}
+		return &ParsedArg{
+			IsRange: true,
+			Range:   Range{Start: start, End: end},
+		}, nil
 	}
 
-	p1Cap, err1 := strconv.Atoi(os.Args[1])
-	p2Cap, err2 := strconv.Atoi(os.Args[2])
+	val, err := strconv.Atoi(arg)
+	if err != nil {
+		return nil, fmt.Errorf("invalid number: %s", arg)
+	}
+	if val <= 0 || val > 100 {
+		return nil, fmt.Errorf("invalid range numbers in: %s", arg)
+	}
+	return &ParsedArg{
+		IsRange: false,
+		Value:   val,
+	}, nil
+}
 
-	if err1 != nil {
-		return 0, 0, fmt.Errorf("invalid hold capacity for player 1: %v", os.Args[1])
-	}
-	if err2 != nil {
-		return 0, 0, fmt.Errorf("invalid hold capacity for player 2: %v", os.Args[2])
-	}
-	if p1Cap < 1 || p2Cap < 1 {
-		return 0, 0, fmt.Errorf("hold capacities must be at least 1")
+func run(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: ./pig <number|range> <number|range>")
 	}
 
-	return p1Cap, p2Cap, nil
+	arg1, err1 := parseArg(args[0])
+	arg2, err2 := parseArg(args[1])
+
+	if err1 != nil || err2 != nil {
+		return fmt.Errorf("error: %v, %v", err1, err2)
+	}
+
+	switch {
+	case !arg1.IsRange && !arg2.IsRange:
+		playerOne, playerTwo := playFixedStrategyAgainstFixedStrategy(arg1.Value, arg2.Value)
+		fmt.Println(formatResult(playerOne, playerTwo))
+	case !arg1.IsRange && arg2.IsRange:
+		results := playFixedStrategyAgainstVariableStrategy(arg1.Value, arg2.Range)
+		for _, result := range results {
+			fmt.Println(formatResult(result[0], result[1]))
+		}
+	}
+	return nil
 }
 
 func main() {
-
-	p1Cap, p2Cap, err := parseArgs()
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Println(err)
 	}
-
-	playerOne := Player{id: "1", holdCapacity: p1Cap}
-	playerTwo := Player{id: "2", holdCapacity: p2Cap}
-
-	play(&playerOne, &playerTwo)
-	fmt.Println(formatResult(&playerOne, &playerTwo))
 }
