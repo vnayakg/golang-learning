@@ -131,16 +131,62 @@ func TestRun_InvalidFlag(t *testing.T) {
 }
 
 func TestRun_LineCountSuccess(t *testing.T) {
-	tmpfile, err := os.CreateTemp("", "example.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpfile.Name())
-	tmpfile.WriteString("line1\nline2\nline3\n")
-	tmpfile.Close()
+	t.Run("for valid line flag", func(t *testing.T) {
+		tmpfile, err := os.CreateTemp("", "example.txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+		tmpfile.WriteString("line1\nline2\nline3\n")
+		tmpfile.Close()
 
-	err = run([]string{"-l", tmpfile.Name()})
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
+		err = run([]string{"-l", tmpfile.Name()})
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("for valid word flag", func(t *testing.T) {
+		tmpfile, err := os.CreateTemp("", "example.txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+		tmpfile.WriteString("line1\nline2\nline3\n")
+		tmpfile.Close()
+
+		err = run([]string{"-w", tmpfile.Name()})
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+	})
+}
+
+func TestCountWords(t *testing.T) {
+	t.Run("file with multiple words", func(t *testing.T) {
+		content := "line1 line2\nline3\n"
+		tmpFile := createTempFile(t, content)
+		defer os.Remove(tmpFile)
+
+		count, err := countWords(tmpFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if count != 3 {
+			t.Errorf("expected 3 words, got %d", count)
+		}
+	})
+
+	t.Run("empty file", func(t *testing.T) {
+		tmpFile := createTempFile(t, "")
+		defer os.Remove(tmpFile)
+
+		count, err := countWords(tmpFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 words, got %d", count)
+		}
+	})
 }
