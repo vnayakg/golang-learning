@@ -22,45 +22,27 @@ func validateFilePath(path string) error {
 	if info.IsDir() {
 		return fmt.Errorf("%v: is a directory", path)
 	}
-
-	file, err := os.Open(path)
-	if err != nil {
-		if os.IsPermission(err) {
-			return fmt.Errorf("%v: permission denied", path)
-		}
-	}
-	defer file.Close()
 	return nil
 }
 
 func countLines(path string) (int, error) {
-	if err := validateFilePath(path); err != nil {
-		return 0, err
-	}
 	return countWithScanner(path, bufio.ScanLines)
 }
 
 func countWords(path string) (int, error) {
-	if err := validateFilePath(path); err != nil {
-		return 0, err
-	}
 	return countWithScanner(path, bufio.ScanWords)
 }
 
 func countCharacters(path string) (int, error) {
-	if err := validateFilePath(path); err != nil {
-		return 0, err
-	}
 	return countWithScanner(path, bufio.ScanRunes)
 }
 
 func countWithScanner(path string, split bufio.SplitFunc) (int, error) {
-	if err := validateFilePath(path); err != nil {
-		return 0, err
-	}
-
 	file, err := os.Open(path)
 	if err != nil {
+		if os.IsPermission(err) {
+			return 0, fmt.Errorf("%v: permission denied", path)
+		}
 		return 0, fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
@@ -93,6 +75,9 @@ func run(args []string) error {
 		return fmt.Errorf("please provide a file path")
 	}
 	filepath := remainingArgs[0]
+	if err := validateFilePath(filepath); err != nil {
+		return err
+	}
 
 	var lines, words, chars int
 	var err error
