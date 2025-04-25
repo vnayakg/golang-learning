@@ -65,6 +65,16 @@ var playFixedStrategyAgainstVariableStrategy = func(p1HoldCapacity int, p2HoldRa
 	return results
 }
 
+var playVariableStrategyAgainstVariableStrategy = func(p1HoldRange Range, p2HoldRange Range) []*[2]*Player {
+	var results []*[2]*Player
+
+	for p1HoldCapacity := p1HoldRange.Start; p1HoldCapacity <= p1HoldRange.End; p1HoldCapacity++ {
+		result := playFixedStrategyAgainstVariableStrategy(p1HoldCapacity, p2HoldRange)
+		results = append(results, result...)
+	}
+	return results
+}
+
 var play = func(playerOne, playerTwo *Player) {
 	for range totalGames {
 		currentPlayer := playerOne
@@ -141,7 +151,7 @@ func parseArg(arg string) (*ParsedArg, error) {
 	}, nil
 }
 
-func run(args []string) error {
+func playStrategies(args []string) error {
 	if len(args) != 2 {
 		return fmt.Errorf("usage: ./pig <number|range> <number|range>")
 	}
@@ -162,12 +172,45 @@ func run(args []string) error {
 		for _, result := range results {
 			fmt.Println(formatResult(result[0], result[1]))
 		}
+	case arg1.IsRange && arg2.IsRange:
+		results := playVariableStrategyAgainstVariableStrategy(arg1.Range, arg2.Range)
+		fmt.Println(formatVariableStrategyResults(results, arg1.Range))
 	}
 	return nil
 }
+func formatVariableStrategyResults(results []*[2]*Player, p1HoldRange Range) []string {
+	resultsByP1 := make(map[int][]*[2]*Player)
+
+	for _, result := range results {
+		p1HoldCapacity := result[0].holdCapacity
+		resultsByP1[p1HoldCapacity] = append(resultsByP1[p1HoldCapacity], result)
+	}
+	var formattedResults []string
+	for p1HoldCapacity := p1HoldRange.Start; p1HoldCapacity <= p1HoldRange.End; p1HoldCapacity++ {
+		resultsForP1 := resultsByP1[p1HoldCapacity]
+		if len(resultsForP1) == 0 {
+			continue
+		}
+		var playerOneWins int = 0
+		var playerTwoWins int = 0
+
+		for _, res := range resultsForP1 {
+			playerOneWins += res[0].wins
+			playerTwoWins += res[1].wins
+		}
+
+		totalGames := playerOneWins + playerTwoWins
+		formattedResult := fmt.Sprintf("Result: Wins, losses staying at k = %v: %v/%v (%0.1f%%), %v/%v (%.1f%%)\n",
+			p1HoldCapacity, playerOneWins, totalGames, float32(playerOneWins)*100/float32(totalGames),
+			playerTwoWins, totalGames, float32(playerTwoWins)*100/float32(totalGames))
+
+		formattedResults = append(formattedResults, formattedResult)
+	}
+	return formattedResults
+}
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	if err := playStrategies(os.Args[1:]); err != nil {
 		fmt.Println(err)
 	}
 }

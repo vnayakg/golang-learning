@@ -159,7 +159,7 @@ func TestRun_FixedVsFixed(t *testing.T) {
 		return &Player{}, &Player{}
 	}
 
-	err := run([]string{"5", "6"})
+	err := playStrategies([]string{"5", "6"})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -181,12 +181,36 @@ func TestRun_FixedVsVariable(t *testing.T) {
 		return []*[2]*Player{}
 	}
 
-	err := run([]string{"5", "1-100"})
+	err := playStrategies([]string{"5", "1-100"})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if !called {
 		t.Error("playFixedStrategyAgainstFixedStrategy was not called")
+	}
+}
+
+func TestRun_VariableVsVariable(t *testing.T) {
+	called := false
+	//cleanup mocks
+	originalPlayVariableStrategyAgainstVariableStrategy := playVariableStrategyAgainstVariableStrategy
+	defer func() {
+		playVariableStrategyAgainstVariableStrategy = originalPlayVariableStrategyAgainstVariableStrategy
+	}()
+	playVariableStrategyAgainstVariableStrategy = func(a, b Range) []*[2]*Player {
+		called = true
+		if (a != Range{1, 100} || b != Range{1, 100}) {
+			t.Errorf("unexpected arguments: got %d and %d", a, b)
+		}
+		return []*[2]*Player{}
+	}
+
+	err := playStrategies([]string{"1-100", "1-100"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Error("playVariableStrategyAgainstFixedStrategy was not called")
 	}
 }
 
@@ -236,5 +260,59 @@ func TestPlayFixedVsVariable_ReturnsCorrectPlayerPairs(t *testing.T) {
 	}
 	if !reflect.DeepEqual(calledWith, expected) {
 		t.Errorf("play called with unexpected values. got %v, want %v", calledWith, expected)
+	}
+}
+
+func TestPlayVariableVsVariable_ReturnsCorrectResult(t *testing.T) {
+	var calledWith [][2]int
+	//cleanup mocks
+	originalPlay := play
+	defer func() { play = originalPlay }()
+	play = func(p1, p2 *Player) {
+		calledWith = append(calledWith, [2]int{p1.holdCapacity, p2.holdCapacity})
+	}
+
+	pairs := playVariableStrategyAgainstVariableStrategy(Range{1, 2}, Range{1, 3})
+
+	if len(pairs) != 4 {
+		t.Fatalf("expected 2 pairs, got %d", len(pairs))
+	}
+	expected := [][2]int{
+		{1, 2},
+		{1, 3},
+		{2, 1},
+		{2, 3},
+	}
+	for i, pair := range pairs {
+		got := [2]int{pair[0].holdCapacity, pair[1].holdCapacity}
+		if got != expected[i] {
+			t.Errorf("at index %d: expected %v, got %v", i, expected[i], got)
+		}
+	}
+	if !reflect.DeepEqual(calledWith, expected) {
+		t.Errorf("play called with unexpected values. got %v, want %v", calledWith, expected)
+	}
+}
+
+func TestFormatVariableStrategyResults(t *testing.T) {
+	player1 := &Player{id: "1", holdCapacity: 1, wins: 7}
+	player2 := &Player{id: "2", holdCapacity: 2, wins: 3}
+	player3 := &Player{id: "1", holdCapacity: 1, wins: 6}
+	player4 := &Player{id: "2", holdCapacity: 3, wins: 4}
+
+	results := []*[2]*Player{
+		{player1, player2},
+		{player3, player4},
+	}
+
+	statStrings := formatVariableStrategyResults(results, Range{Start: 1, End: 1})
+
+	if len(statStrings) != 1 {
+		t.Errorf("Expected 1 stat string, got %d", len(statStrings))
+	}
+
+	expectedString := "Result: Wins, losses staying at k = 1: 13/20 (65.0%), 7/20 (35.0%)\n"
+	if statStrings[0] != expectedString {
+		t.Errorf("Expected string: %s, got: %s", expectedString, statStrings[0])
 	}
 }
