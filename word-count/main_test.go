@@ -130,7 +130,7 @@ func TestRun_InvalidFlag(t *testing.T) {
 	}
 }
 
-func TestRun_LineCountSuccess(t *testing.T) {
+func TestRun_ValidFlagSuccess(t *testing.T) {
 	t.Run("for valid line flag", func(t *testing.T) {
 		tmpfile, err := os.CreateTemp("", "example.txt")
 		if err != nil {
@@ -160,6 +160,21 @@ func TestRun_LineCountSuccess(t *testing.T) {
 			t.Errorf("expected no error, got %v", err)
 		}
 	})
+
+	t.Run("for valid character flag", func(t *testing.T) {
+		tmpfile, err := os.CreateTemp("", "example.txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+		tmpfile.WriteString("line1\nline2\nline3\n")
+		tmpfile.Close()
+
+		err = run([]string{"-c", tmpfile.Name()})
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+	})
 }
 
 func TestCountWords(t *testing.T) {
@@ -182,6 +197,35 @@ func TestCountWords(t *testing.T) {
 		defer os.Remove(tmpFile)
 
 		count, err := countWords(tmpFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 words, got %d", count)
+		}
+	})
+}
+
+func TestCountCharacter(t *testing.T) {
+	t.Run("file with multiple characters", func(t *testing.T) {
+		content := "line1 line2\nline3 \n "
+		tmpFile := createTempFile(t, content)
+		defer os.Remove(tmpFile)
+
+		count, err := countCharacters(tmpFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if count != 20 {
+			t.Errorf("expected 17 characters, got %d", count)
+		}
+	})
+
+	t.Run("empty file", func(t *testing.T) {
+		tmpFile := createTempFile(t, "")
+		defer os.Remove(tmpFile)
+
+		count, err := countCharacters(tmpFile)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

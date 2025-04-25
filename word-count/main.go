@@ -86,10 +86,37 @@ func countWordsFromFile(filepath string) (int, error) {
 	return wordCount, nil
 }
 
+func countCharacters(path string) (int, error) {
+	if err := validateFilePath(path); err != nil {
+		return 0, err
+	}
+	return countCharactersFromFile(path)
+}
+
+func countCharactersFromFile(filepath string) (int, error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return 0, fmt.Errorf("error opening file %w", err)
+	}
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanRunes)
+	characterCount := 0
+
+	for scanner.Scan() {
+		characterCount++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("error scanning file %w", err)
+	}
+	return characterCount, nil
+}
+
 func run(args []string) error {
 	flags := flag.NewFlagSet("wc", flag.ContinueOnError)
 	lineFlag := flags.Bool("l", false, "get line count")
 	wordFlag := flags.Bool("w", false, "get word count")
+	characterFlag := flags.Bool("c", false, "get character count")
 
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -110,6 +137,13 @@ func run(args []string) error {
 	}
 	if *wordFlag {
 		count, err := countWords(filePath)
+		if err != nil {
+			return fmt.Errorf("%w", err)
+		}
+		fmt.Printf("%d %s\n", count, filePath)
+	}
+	if *characterFlag {
+		count, err := countCharacters(filePath)
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
