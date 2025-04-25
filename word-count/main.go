@@ -81,10 +81,9 @@ func countWithScanner(path string, split bufio.SplitFunc) (int, error) {
 
 func run(args []string) error {
 	flags := flag.NewFlagSet("wc", flag.ContinueOnError)
-	lineFlag := flags.Bool("l", false, "get line count")
-	wordFlag := flags.Bool("w", false, "get word count")
-	characterFlag := flags.Bool("c", false, "get character count")
-
+	showLines := flags.Bool("l", false, "Count lines")
+	showWords := flags.Bool("w", false, "Count words")
+	showChars := flags.Bool("c", false, "Count characters")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -93,43 +92,40 @@ func run(args []string) error {
 	if len(remainingArgs) == 0 {
 		return fmt.Errorf("please provide a file path")
 	}
-	filePath := remainingArgs[0]
+	filepath := remainingArgs[0]
 
-	if *lineFlag {
-		count, err := countLines(filePath)
+	var lines, words, chars int
+	var err error
+	showAll := !*showLines && !*showWords && !*showChars
+	if showAll || *showLines {
+		lines, err = countLines(filepath)
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
-		fmt.Printf("%d %s\n", count, filePath)
 	}
-	if *wordFlag {
-		count, err := countWords(filePath)
+	if showAll || *showWords {
+		words, err = countWords(filepath)
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
-		fmt.Printf("%d %s\n", count, filePath)
 	}
-	if *characterFlag {
-		count, err := countCharacters(filePath)
+	if showAll || *showChars {
+		chars, err = countCharacters(filepath)
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
-		fmt.Printf("%d %s\n", count, filePath)
-	} else if(!*lineFlag && !*wordFlag && !*characterFlag) {
-		lineCount, lineErr := countLines(filePath)
-		if lineErr != nil {
-			return fmt.Errorf("%w", lineErr)
-		}
-		wordCount, wordErr := countWords(filePath)
-		if wordErr != nil {
-			return fmt.Errorf("%w", lineErr)
-		}
-		characterCount, charErr := countCharacters(filePath)
-		if charErr != nil {
-			return fmt.Errorf("%w", charErr)
-		}
-		fmt.Printf("%d %d %d %s\n", lineCount, wordCount, characterCount, filePath)
 	}
+	if showAll || *showLines {
+		fmt.Printf("%8d ", lines)
+	}
+	if showAll || *showWords {
+		fmt.Printf("%8d ", words)
+	}
+	if showAll || *showChars {
+		fmt.Printf("%8d ", chars)
+	}
+
+	fmt.Printf(" %s\n", filepath)
 	return nil
 }
 
