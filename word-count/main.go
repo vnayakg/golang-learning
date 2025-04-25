@@ -35,81 +35,50 @@ func validateFilePath(path string) error {
 	return nil
 }
 
-func countLinesFromFile(filepath string) (int, error) {
-	file, err := os.Open(filepath)
-	if err != nil {
-		return 0, fmt.Errorf("error opening file %w", err)
-	}
-	scanner := bufio.NewScanner(file)
-	lineCount := 0
-
-	for scanner.Scan() {
-		lineCount++
-	}
-
-	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error scanning file %w", err)
-	}
-	return lineCount, nil
-}
-
 func countLines(path string) (int, error) {
 	if err := validateFilePath(path); err != nil {
 		return 0, err
 	}
-	return countLinesFromFile(path)
+	return countWithScanner(path, bufio.ScanLines)
 }
 
 func countWords(path string) (int, error) {
 	if err := validateFilePath(path); err != nil {
 		return 0, err
 	}
-	return countWordsFromFile(path)
-}
-
-func countWordsFromFile(filepath string) (int, error) {
-	file, err := os.Open(filepath)
-	if err != nil {
-		return 0, fmt.Errorf("error opening file %w", err)
-	}
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanWords)
-	wordCount := 0
-
-	for scanner.Scan() {
-		wordCount++
-	}
-
-	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error scanning file %w", err)
-	}
-	return wordCount, nil
+	return countWithScanner(path, bufio.ScanWords)
 }
 
 func countCharacters(path string) (int, error) {
 	if err := validateFilePath(path); err != nil {
 		return 0, err
 	}
-	return countCharactersFromFile(path)
+	return countWithScanner(path, bufio.ScanRunes)
 }
 
-func countCharactersFromFile(filepath string) (int, error) {
-	file, err := os.Open(filepath)
-	if err != nil {
-		return 0, fmt.Errorf("error opening file %w", err)
+func countWithScanner(path string, split bufio.SplitFunc) (int, error) {
+	if err := validateFilePath(path); err != nil {
+		return 0, err
 	}
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanRunes)
-	characterCount := 0
 
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, fmt.Errorf("error opening file: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(split)
+
+	count := 0
 	for scanner.Scan() {
-		characterCount++
+		count++
 	}
 
 	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error scanning file %w", err)
+		return 0, fmt.Errorf("error scanning file: %w", err)
 	}
-	return characterCount, nil
+	return count, nil
 }
 
 func run(args []string) error {
@@ -149,7 +118,6 @@ func run(args []string) error {
 		}
 		fmt.Printf("%d %s\n", count, filePath)
 	}
-
 	return nil
 }
 
