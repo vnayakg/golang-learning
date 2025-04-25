@@ -175,6 +175,21 @@ func TestRun_ValidFlagSuccess(t *testing.T) {
 			t.Errorf("expected no error, got %v", err)
 		}
 	})
+
+	t.Run("for missing flag", func(t *testing.T) {
+		tmpfile, err := os.CreateTemp("", "example.txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+		tmpfile.WriteString("line1\nline2\nline3\n")
+		tmpfile.Close()
+
+		err = run([]string{tmpfile.Name()})
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+	})
 }
 
 func TestCountWords(t *testing.T) {

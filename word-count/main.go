@@ -117,6 +117,20 @@ func run(args []string) error {
 			return fmt.Errorf("%w", err)
 		}
 		fmt.Printf("%d %s\n", count, filePath)
+	} else if(!*lineFlag && !*wordFlag && !*characterFlag) {
+		lineCount, lineErr := countLines(filePath)
+		if lineErr != nil {
+			return fmt.Errorf("%w", lineErr)
+		}
+		wordCount, wordErr := countWords(filePath)
+		if wordErr != nil {
+			return fmt.Errorf("%w", lineErr)
+		}
+		characterCount, charErr := countCharacters(filePath)
+		if charErr != nil {
+			return fmt.Errorf("%w", charErr)
+		}
+		fmt.Printf("%d %d %d %s\n", lineCount, wordCount, characterCount, filePath)
 	}
 	return nil
 }
