@@ -1,9 +1,8 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -42,8 +41,8 @@ func TestValidateFilePath_FileDoesNotExist(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-
-	if !errors.Is(err, os.ErrNotExist) {
+	expected := "this_file_does_not_exist.txt: no such file exist"
+	if err.Error() != expected {
 		t.Errorf("expected file not exist error, got: %v", err)
 	}
 }
@@ -62,7 +61,8 @@ func TestValidateFilePath_PermissionDenied(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected permission error, got nil")
 	}
-	if !errors.Is(err, os.ErrPermission) {
+		expected := fmt.Sprintf("%v: permission denied", tmpFile)
+	if expected != err.Error() {
 		t.Errorf("expected permission error, got: %v", err)
 	}
 }
@@ -72,7 +72,8 @@ func TestValidateFilePath_PathIsDirectory(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	err := validateFilePath(dir)
-	if !strings.Contains(err.Error(), "path is a directory") {
+	expected := fmt.Sprintf("%v: is a directory", dir)
+	if expected != err.Error() {
 		t.Errorf("expected directory error, got: %v", err)
 	}
 }

@@ -12,24 +12,22 @@ func validateFilePath(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("file does not exist: %w", err)
+			return fmt.Errorf("%v: no such file exist", path)
 		}
 		if os.IsPermission(err) {
-			return fmt.Errorf("file permission error: %w", err)
+			return fmt.Errorf("%v: permission denied", path)
 		}
-		return fmt.Errorf("error stating file: %w", err)
 	}
 
 	if info.IsDir() {
-		return fmt.Errorf("path is a directory: %v", path)
+		return fmt.Errorf("%v: is a directory", path)
 	}
 
 	file, err := os.Open(path)
 	if err != nil {
 		if os.IsPermission(err) {
-			return fmt.Errorf("file permission error: %w", err)
+			return fmt.Errorf("%v: permission denied", path)
 		}
-		return fmt.Errorf("file open error: %w", err)
 	}
 	defer file.Close()
 	return nil
