@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -56,4 +58,34 @@ func countLines(path string) (int, error) {
 		return 0, err
 	}
 	return countLinesFromFile(path)
+}
+
+func run(args []string) error {
+	flags := flag.NewFlagSet("wc", flag.ContinueOnError)
+	lineFlag := flags.Bool("l", false, "get line count")
+
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	remainingArgs := flags.Args()
+	if len(remainingArgs) == 0 {
+		return fmt.Errorf("please provide a file path")
+	}
+	filePath := remainingArgs[0]
+
+	if *lineFlag {
+		count, err := countLines(filePath)
+		if err != nil {
+			return fmt.Errorf("error counting lines: %w", err)
+		}
+		fmt.Printf("%d %s\n", count, filePath)
+	}
+	return nil
+}
+
+func main() {
+	if err := run(os.Args[1:]); err != nil {
+		log.Fatal(err)
+	}
 }

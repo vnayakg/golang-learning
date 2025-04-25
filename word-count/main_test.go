@@ -114,3 +114,33 @@ func createTempFile(t *testing.T, content string) string {
 
 	return tmpFile.Name()
 }
+
+func TestRun_MissingArgs(t *testing.T) {
+	err := run([]string{})
+	if err == nil || err.Error() != "please provide a file path" {
+		t.Errorf("expected file path error, got %v", err)
+	}
+}
+
+func TestRun_InvalidFlag(t *testing.T) {
+	err := run([]string{"-invalid"})
+	if err == nil {
+		println(err)
+		t.Errorf("expected error for invalid flag")
+	}
+}
+
+func TestRun_LineCountSuccess(t *testing.T) {
+	tmpfile, err := os.CreateTemp("", "example.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+	tmpfile.WriteString("line1\nline2\nline3\n")
+	tmpfile.Close()
+
+	err = run([]string{"-l", tmpfile.Name()})
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+}
