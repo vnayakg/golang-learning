@@ -5,6 +5,13 @@ import (
 	"testing"
 )
 
+func assertEqual[T comparable](t *testing.T, got, want T, msg string) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s: got %v, want %v", msg, got, want)
+	}
+}
+
 func mockRoller(rolls []int) func() int {
 	index := 0
 	return func() int {
@@ -22,9 +29,7 @@ func TestPlayTurn_ShouldPassWhenDiceValueIsOne(t *testing.T) {
 
 	player.playTurn(mockRoller([]int{1}))
 
-	if player.totalScore != 0 {
-		t.Errorf("expected total score to be 0, got %v", player.totalScore)
-	}
+	assertEqual(t, player.totalScore, 0, "expected total score to be 0")
 }
 
 func TestPlayTurn_ShouldDiscardAccumulatedScoreWhenDiceValueIsOne(t *testing.T) {
@@ -32,9 +37,7 @@ func TestPlayTurn_ShouldDiscardAccumulatedScoreWhenDiceValueIsOne(t *testing.T) 
 
 	player.playTurn(mockRoller([]int{6, 1}))
 
-	if player.totalScore != 0 {
-		t.Errorf("expected total score to be 0, got %v", player.totalScore)
-	}
+	assertEqual(t, player.totalScore, 0, "expected total score to be 0")
 }
 
 func TestPlayTurn_ShouldAccumulateScoreTillExactHoldCapacity(t *testing.T) {
@@ -42,9 +45,7 @@ func TestPlayTurn_ShouldAccumulateScoreTillExactHoldCapacity(t *testing.T) {
 
 	player.playTurn(mockRoller([]int{6, 4}))
 
-	if player.totalScore != 10 {
-		t.Errorf("expected total score to be 10, got %v", player.totalScore)
-	}
+	assertEqual(t, player.totalScore, 10, "expected total score to be 10")
 }
 
 func TestPlayTurn_ShouldAccumulateScoreTillHoldCapacity(t *testing.T) {
@@ -52,9 +53,7 @@ func TestPlayTurn_ShouldAccumulateScoreTillHoldCapacity(t *testing.T) {
 
 	player.playTurn(mockRoller([]int{6, 6}))
 
-	if player.totalScore != 12 {
-		t.Errorf("expected total score to be 12, got %v", player.totalScore)
-	}
+	assertEqual(t, player.totalScore, 12, "expected total score to be 12")
 }
 
 func TestSwitchPlayer_ShouldSwitchCurrentPlayer(t *testing.T) {
@@ -63,9 +62,7 @@ func TestSwitchPlayer_ShouldSwitchCurrentPlayer(t *testing.T) {
 
 	result := switchPlayer(&playerOne, &playerOne, &playerTwo)
 
-	if result != &playerTwo {
-		t.Errorf("expected: %v, got %v", playerTwo, result)
-	}
+	assertEqual(t, result, &playerTwo, "shouldSwitchPlayer")
 }
 
 func TestResetTotalScore_ShouldResetScoreOfPlayer(t *testing.T) {
@@ -73,9 +70,7 @@ func TestResetTotalScore_ShouldResetScoreOfPlayer(t *testing.T) {
 
 	player.resetTotalScore()
 
-	if player.totalScore != 0 {
-		t.Errorf("expected totalScore: 0, got %v", player.totalScore)
-	}
+	assertEqual(t, player.totalScore, 0, "expected totalScore: 0")
 }
 
 func TestFormatResult(t *testing.T) {
@@ -85,9 +80,7 @@ func TestFormatResult(t *testing.T) {
 	result := formatResult(playerOne, playerTwo)
 	expected := "Holding at 20 wins: 6/10 (60.0%) vs Holding at 10 wins: 4/10 (40.0%)"
 
-	if result != expected {
-		t.Errorf("expected %s, got %s", expected, result)
-	}
+	assertEqual(t, result, expected, "")
 }
 
 func TestPlay_ShouldPlayGivenNumberOfGames(t *testing.T) {
@@ -95,11 +88,9 @@ func TestPlay_ShouldPlayGivenNumberOfGames(t *testing.T) {
 	playerTwo := &Player{id: "2", holdCapacity: 10, wins: 0}
 
 	play(playerOne, playerTwo)
-
 	totalGames := playerOne.wins + playerTwo.wins
-	if totalGames != 10 {
-		t.Errorf("expected %v, got %v", 10, totalGames)
-	}
+
+	assertEqual(t, totalGames, 10, "")
 }
 
 func TestParseArgs_ShouldParseForValidArgs(t *testing.T) {
@@ -126,21 +117,10 @@ func TestParseArgs_ShouldParseForValidArgs(t *testing.T) {
 func TestParseArgs_ShouldGiveErrorForInvalidArgs(t *testing.T) {
 	testCases := []struct {
 		input string
-	}{
-		{"a"},
-		{"0"},
-		{"0-1"},
-		{"1-"},
-		{"-"},
-		{"-10"},
-		{"0-100"},
-		{"1-101"},
-	}
+	}{{"a"}, {"0"}, {"0-1"}, {"1-"}, {"-"}, {"-10"}, {"0-100"}, {"1-101"}}
 
 	for _, testCase := range testCases {
-		_, err := parseArg(testCase.input)
-
-		if err == nil {
+		if _, err := parseArg(testCase.input); err == nil {
 			t.Errorf("Expected error for %v, got %v", testCase.input, err)
 		}
 	}
@@ -160,10 +140,8 @@ func TestRun_FixedVsFixed(t *testing.T) {
 	}
 
 	err := playStrategies([]string{"5", "6"})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !called {
+
+	if err != nil || !called {
 		t.Error("playFixedStrategyAgainstFixedStrategy was not called")
 	}
 }
@@ -182,10 +160,8 @@ func TestRun_FixedVsVariable(t *testing.T) {
 	}
 
 	err := playStrategies([]string{"5", "1-100"})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !called {
+
+	if err != nil || !called {
 		t.Error("playFixedStrategyAgainstFixedStrategy was not called")
 	}
 }
@@ -206,10 +182,8 @@ func TestRun_VariableVsVariable(t *testing.T) {
 	}
 
 	err := playStrategies([]string{"1-100", "1-100"})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !called {
+
+	if err != nil || !called {
 		t.Error("playVariableStrategyAgainstFixedStrategy was not called")
 	}
 }
@@ -226,12 +200,12 @@ func TestPlayFixedVsFixed_ReturnsCorrectPlayers(t *testing.T) {
 	}
 
 	p1, p2 := playFixedStrategyAgainstFixedStrategy(5, 6)
+
 	if !called {
 		t.Fatal("play was not called")
 	}
-	if p1.wins != 1 || p2.wins != 99 {
-		t.Errorf("unexpected hold capacities: %v, %v", p1.wins, p2.wins)
-	}
+	assertEqual(t, p1.wins, 1, "unexpected hold capacities")
+	assertEqual(t, p2.wins, 99, "unexpected hold capacities")
 }
 
 func TestPlayFixedVsVariable_ReturnsCorrectPlayerPairs(t *testing.T) {
