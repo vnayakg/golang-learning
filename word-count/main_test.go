@@ -62,7 +62,7 @@ func TestCountWithScanner_PermissionDenied(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected permission error, got nil")
 	}
-		expected := fmt.Sprintf("%v: permission denied", tmpFile)
+	expected := fmt.Sprintf("%v: permission denied", tmpFile)
 	if expected != err.Error() {
 		t.Errorf("expected permission error, got: %v", err)
 	}
@@ -188,6 +188,40 @@ func TestRun_ValidFlagSuccess(t *testing.T) {
 		tmpfile.Close()
 
 		err = run([]string{tmpfile.Name()})
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("multiple files with flags", func(t *testing.T) {
+		firstFile, firstErr := os.CreateTemp("", "first.txt")
+		secondFile, secondErr := os.CreateTemp("", "second.txt")
+		if firstErr != nil || secondErr != nil {
+			t.Fatal()
+		}
+		defer os.Remove(firstFile.Name())
+		defer os.Remove(secondFile.Name())
+		firstFile.WriteString("line1\nline2\nline3\n")
+		firstFile.Close()
+
+		err := run([]string{"-l", firstFile.Name(), secondFile.Name()})
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("multiple files with no flags", func(t *testing.T) {
+		firstFile, firstErr := os.CreateTemp("", "first.txt")
+		secondFile, secondErr := os.CreateTemp("", "second.txt")
+		if firstErr != nil || secondErr != nil {
+			t.Fatal()
+		}
+		defer os.Remove(firstFile.Name())
+		defer os.Remove(secondFile.Name())
+		firstFile.WriteString("line1\nline2\nline3\n")
+		firstFile.Close()
+
+		err := run([]string{firstFile.Name(), secondFile.Name()})
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
