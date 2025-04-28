@@ -21,7 +21,7 @@ type Options struct {
 	showAll, showLines, showWords, showChars bool
 }
 
-const BUF_SIZE = 16 * 1024
+const BUF_SIZE = 1024 * 1024
 
 func countFromReader(reader *bufio.Reader) (lines, words, chars int, err error) {
 	var inWord bool
@@ -138,10 +138,11 @@ func processSTDIN(options *Options) error {
 
 func processFiles(filepaths []string, options *Options) error {
 	totalLines, totalWords, totalChars := 0, 0, 0
-	fileResults := make([]FileResult, 0, len(filepaths))
+	fileResults := make([]FileResult, len(filepaths))
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 
-	for _, filepath := range filepaths {
+	for index, filepath := range filepaths {
 		wg.Add(1)
 		go func() error {
 			if err := validateFilePath(filepath); err != nil {
@@ -152,21 +153,25 @@ func processFiles(filepaths []string, options *Options) error {
 			if err != nil {
 				return fmt.Errorf("error opening file: %w", err)
 			}
+			defer file.Close()
 			reader := bufio.NewReader(file)
 			lines, words, chars, err := countFromReader(reader)
+
 			if err != nil {
 				return err
 			}
+			mu.Lock()
 			totalLines += lines
 			totalWords += words
 			totalChars += chars
+			mu.Unlock()
 
-			fileResults = append(fileResults, FileResult{path: filepath, lines: lines, words: words, chars: chars})
+			fileResults[index] = FileResult{path: filepath, lines: lines, words: words, chars: chars}
 			defer wg.Done()
 			return nil
 		}()
-		wg.Wait()
 	}
+	wg.Wait()
 
 	for _, result := range fileResults {
 		if result.err != nil {
