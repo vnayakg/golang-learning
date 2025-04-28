@@ -9,6 +9,16 @@ import (
 	"strings"
 )
 
+type FileResult struct {
+	path                string
+	lines, words, chars int
+	err                 error
+}
+
+type Options struct {
+	showAll, showLines, showWords, showChars bool
+}
+
 func validateFilePath(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -26,15 +36,15 @@ func validateFilePath(path string) error {
 }
 
 func countLines(path string) (int, error) {
-	return countWithScanner(path, bufio.ScanLines)
+	return countItems(path, bufio.ScanLines)
 }
 
 func countWords(path string) (int, error) {
-	return countWithScanner(path, bufio.ScanWords)
+	return countItems(path, bufio.ScanWords)
 }
 
 func countCharacters(path string) (int, error) {
-	return countWithScanner(path, bufio.ScanRunes)
+	return countItems(path, bufio.ScanRunes)
 }
 
 func countWordsFrom(s string) int {
@@ -48,7 +58,7 @@ func countWordsFrom(s string) int {
 	return words
 }
 
-func countWithScanner(path string, split bufio.SplitFunc) (int, error) {
+func countItems(path string, split bufio.SplitFunc) (int, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		if os.IsPermission(err) {
@@ -72,84 +82,100 @@ func countWithScanner(path string, split bufio.SplitFunc) (int, error) {
 	return count, nil
 }
 
-type FileResult struct {
-	path                string
-	lines, words, chars int
-	err                 error
-}
-
-func run(args []string) error {
+func parseFlags(args []string) (*Options, []string, error) {
 	flags := flag.NewFlagSet("wc", flag.ContinueOnError)
 	showLines := flags.Bool("l", false, "Count lines")
 	showWords := flags.Bool("w", false, "Count words")
 	showChars := flags.Bool("c", false, "Count characters")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return nil, nil, err
 	}
 	showAll := !*showLines && !*showWords && !*showChars
 
-	filepaths := flags.Args()
-	if len(filepaths) == 0 {
-		scanner := bufio.NewScanner(os.Stdin)
-		lines, words, chars := 0, 0, 0
+	options := Options{showAll: showAll,
+		showLines: *showLines,
+		showWords: *showWords,
+		showChars: *showChars}
+	return &options, flags.Args(), nil
+}
 
-		for scanner.Scan() {
-			line := scanner.Text()
-			lines++
-			words += countWordsFrom(line)
-			chars += len(line) + 1
-		}
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("error reading stdin: %w", err)
-		}
-		if showAll || *showLines {
-			fmt.Printf("%8d ", lines)
-		}
-		if showAll || *showWords {
-			fmt.Printf("%8d ", words)
-		}
-		if showAll || *showChars {
-			fmt.Printf("%8d ", chars)
-		}
-		fmt.Println()
-		return nil
+func printResult(lines, words, chars int, path string, options *Options) {
+	if options.showAll || options.showLines {
+		fmt.Printf("%8d ", lines)
 	}
+	if options.showAll || options.showWords {
+		fmt.Printf("%8d ", words)
+	}
+	if options.showAll || options.showChars {
+		fmt.Printf("%8d ", chars)
+	}
+	fmt.Printf("%s\n", path)
+}
 
+func processSTDIN(options *Options) error {
+	scanner := bufio.NewScanner(os.Stdin)
+	lines, words, chars := 0, 0, 0
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		lines++
+		words += countWordsFrom(line)
+		chars += len(line) + 1
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading stdin: %w", err)
+	}
+	printResult(lines, words, chars, "\n", options)
+	return nil
+}
+
+func countFromFile(filepath string, options *Options) (*FileResult, error) {
+	fileResult := &FileResult{path: filepath}
+	lines, words, chars := 0, 0, 0
+	var err error
+
+	if options.showAll || options.showLines {
+		lines, err = countLines(filepath)
+		if err != nil {
+			return nil, fmt.Errorf("%w", err)
+		}
+		fileResult.lines = lines
+	}
+	if options.showAll || options.showWords {
+		words, err = countWords(filepath)
+		if err != nil {
+			return nil, fmt.Errorf("%w", err)
+		}
+		fileResult.words = words
+	}
+	if options.showAll || options.showChars {
+		chars, err = countCharacters(filepath)
+		if err != nil {
+			return nil, fmt.Errorf("%w", err)
+		}
+		fileResult.chars = chars
+	}
+	return fileResult, nil
+}
+
+func processFiles(filepaths []string, options *Options) error {
 	totalLines, totalWords, totalChars := 0, 0, 0
-	fileResults := make([]FileResult, len(filepaths))
+	fileResults := make([]FileResult, 0, len(filepaths))
 
-	for index, filepath := range filepaths {
+	for _, filepath := range filepaths {
 		if err := validateFilePath(filepath); err != nil {
 			return err
 		}
-		fileResults[index].path = filepath
-		lines, words, chars := 0, 0, 0
-		var err error
 
-		if showAll || *showLines {
-			lines, err = countLines(filepath)
-			if err != nil {
-				return fmt.Errorf("%w", err)
-			}
-			totalLines += lines
-			fileResults[index].lines = lines
+		result, err := countFromFile(filepath, options)
+		if err != nil {
+			return err
 		}
-		if showAll || *showWords {
-			words, err = countWords(filepath)
-			if err != nil {
-				return fmt.Errorf("%w", err)
-			}
-			totalWords += words
-			fileResults[index].words = words
-		}
-		if showAll || *showChars {
-			chars, err = countCharacters(filepath)
-			if err != nil {
-				return fmt.Errorf("%w", err)
-			}
-			totalChars += chars
-			fileResults[index].chars = chars
-		}
+		totalLines += result.lines
+		totalWords += result.words
+		totalChars += result.chars
+
+		fileResults = append(fileResults, *result)
 	}
 
 	for _, result := range fileResults {
@@ -157,30 +183,26 @@ func run(args []string) error {
 			fmt.Fprintln(os.Stderr, result.err)
 			continue
 		}
-		if showAll || *showLines {
-			fmt.Printf("%8d ", result.lines)
-		}
-		if showAll || *showWords {
-			fmt.Printf("%8d ", result.words)
-		}
-		if showAll || *showChars {
-			fmt.Printf("%8d ", result.chars)
-		}
-		fmt.Printf("%s\n", result.path)
+		printResult(result.lines, result.words, result.chars, result.path, options)
 	}
 
 	if len(filepaths) > 1 {
-		if showAll || *showLines {
-			fmt.Printf("%8d ", totalLines)
-		}
-		if showAll || *showWords {
-			fmt.Printf("%8d ", totalWords)
-		}
-		if showAll || *showChars {
-			fmt.Printf("%8d ", totalChars)
-		}
-		fmt.Printf("total\n")
+		printResult(totalLines, totalWords, totalChars, "total", options)
 	}
+	return nil
+}
+
+func run(args []string) error {
+	options, filepaths, err := parseFlags(args)
+	if err != nil {
+		return fmt.Errorf("error parsing arguments: %w", err)
+	}
+
+	if len(filepaths) == 0 {
+		processSTDIN(options)
+		return nil
+	}
+	processFiles(filepaths, options)
 	return nil
 }
 

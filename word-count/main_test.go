@@ -60,7 +60,7 @@ func TestCountWithScanner_PermissionDenied(t *testing.T) {
 	}
 	defer os.Chmod(tmpFile, 0600)
 
-	_, err = countWithScanner(tmpFile, bufio.ScanLines)
+	_, err = countItems(tmpFile, bufio.ScanLines)
 	if err == nil {
 		t.Fatal("expected permission error, got nil")
 	}
