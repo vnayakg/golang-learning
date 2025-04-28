@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 )
 
 type FileResult struct {
@@ -20,7 +21,7 @@ type Options struct {
 	showAll, showLines, showWords, showChars bool
 }
 
-const BUF_SIZE = 16*1024
+const BUF_SIZE = 16 * 1024
 
 func countFromReader(reader *bufio.Reader) (lines, words, chars int, err error) {
 	var inWord bool
@@ -138,26 +139,33 @@ func processSTDIN(options *Options) error {
 func processFiles(filepaths []string, options *Options) error {
 	totalLines, totalWords, totalChars := 0, 0, 0
 	fileResults := make([]FileResult, 0, len(filepaths))
+	var wg sync.WaitGroup
 
 	for _, filepath := range filepaths {
-		if err := validateFilePath(filepath); err != nil {
-			return err
-		}
+		wg.Add(1)
+		go func() error {
+			if err := validateFilePath(filepath); err != nil {
+				return err
+			}
 
-		file, err := os.Open(filepath)
-		if err != nil {
-			return fmt.Errorf("error opening file: %w", err)
-		}
-		reader := bufio.NewReader(file)
-		lines, words, chars, err := countFromReader(reader)
-		if err != nil {
-			return err
-		}
-		totalLines += lines
-		totalWords += words
-		totalChars += chars
+			file, err := os.Open(filepath)
+			if err != nil {
+				return fmt.Errorf("error opening file: %w", err)
+			}
+			reader := bufio.NewReader(file)
+			lines, words, chars, err := countFromReader(reader)
+			if err != nil {
+				return err
+			}
+			totalLines += lines
+			totalWords += words
+			totalChars += chars
 
-		fileResults = append(fileResults, FileResult{path: filepath, lines: lines, words: words, chars: chars})
+			fileResults = append(fileResults, FileResult{path: filepath, lines: lines, words: words, chars: chars})
+			defer wg.Done()
+			return nil
+		}()
+		wg.Wait()
 	}
 
 	for _, result := range fileResults {
