@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -117,13 +119,6 @@ func createTempFile(t *testing.T, content string) string {
 	return tmpFile.Name()
 }
 
-func TestRun_MissingArgs(t *testing.T) {
-	err := run([]string{})
-	if err == nil || err.Error() != "please provide a file path" {
-		t.Errorf("expected file path error, got %v", err)
-	}
-}
-
 func TestRun_InvalidFlag(t *testing.T) {
 	err := run([]string{"-invalid"})
 	if err == nil {
@@ -132,7 +127,7 @@ func TestRun_InvalidFlag(t *testing.T) {
 	}
 }
 
-func TestRun_ValidFlagSuccess(t *testing.T) {
+func TestRun(t *testing.T) {
 	t.Run("for valid line flag", func(t *testing.T) {
 		tmpfile, err := os.CreateTemp("", "example.txt")
 		if err != nil {
@@ -142,9 +137,16 @@ func TestRun_ValidFlagSuccess(t *testing.T) {
 		tmpfile.WriteString("line1\nline2\nline3\n")
 		tmpfile.Close()
 
-		err = run([]string{"-l", tmpfile.Name()})
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+		output := captureOutput(func() {
+			if err := run([]string{"-l", tmpfile.Name()}); err != nil {
+				t.Fatalf("run failed: %v", err)
+			}
+		})
+
+		expected := fmt.Sprintf("       3 %v\n",
+			tmpfile.Name())
+		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+			t.Errorf("expected %q, got %q", expected, output)
 		}
 	})
 
@@ -157,9 +159,16 @@ func TestRun_ValidFlagSuccess(t *testing.T) {
 		tmpfile.WriteString("line1\nline2\nline3\n")
 		tmpfile.Close()
 
-		err = run([]string{"-w", tmpfile.Name()})
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+		output := captureOutput(func() {
+			if err := run([]string{"-w", tmpfile.Name()}); err != nil {
+				t.Fatalf("run failed: %v", err)
+			}
+		})
+
+		expected := fmt.Sprintf("       3 %v\n",
+			tmpfile.Name())
+		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+			t.Errorf("expected %q, got %q", expected, output)
 		}
 	})
 
@@ -172,9 +181,16 @@ func TestRun_ValidFlagSuccess(t *testing.T) {
 		tmpfile.WriteString("line1\nline2\nline3\n")
 		tmpfile.Close()
 
-		err = run([]string{"-c", tmpfile.Name()})
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+		output := captureOutput(func() {
+			if err := run([]string{"-c", tmpfile.Name()}); err != nil {
+				t.Fatalf("run failed: %v", err)
+			}
+		})
+
+		expected := fmt.Sprintf("       18 %v\n",
+			tmpfile.Name())
+		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+			t.Errorf("expected %q, got %q", expected, output)
 		}
 	})
 
@@ -187,9 +203,16 @@ func TestRun_ValidFlagSuccess(t *testing.T) {
 		tmpfile.WriteString("line1\nline2\nline3\n")
 		tmpfile.Close()
 
-		err = run([]string{tmpfile.Name()})
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+		output := captureOutput(func() {
+			if err := run([]string{tmpfile.Name()}); err != nil {
+				t.Fatalf("run failed: %v", err)
+			}
+		})
+
+		expected := fmt.Sprintf("       3        3       18 %v\n",
+			tmpfile.Name())
+		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+			t.Errorf("expected %q, got %q", expected, output)
 		}
 	})
 
@@ -204,13 +227,20 @@ func TestRun_ValidFlagSuccess(t *testing.T) {
 		firstFile.WriteString("line1\nline2\nline3\n")
 		firstFile.Close()
 
-		err := run([]string{"-l", firstFile.Name(), secondFile.Name()})
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+		output := captureOutput(func() {
+			if err := run([]string{"-l", "-w", firstFile.Name(), secondFile.Name()}); err != nil {
+				t.Fatalf("run failed: %v", err)
+			}
+		})
+		expected := fmt.Sprintf("       3        3 %v\n       0        0 %v\n       3        3 total",
+			firstFile.Name(), secondFile.Name())
+		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+			t.Errorf("expected %q, got %q", expected, output)
 		}
+
 	})
 
-	t.Run("multiple files with no flags", func(t *testing.T) {
+	t.Run("multiple files without flags", func(t *testing.T) {
 		firstFile, firstErr := os.CreateTemp("", "first.txt")
 		secondFile, secondErr := os.CreateTemp("", "second.txt")
 		if firstErr != nil || secondErr != nil {
@@ -220,10 +250,47 @@ func TestRun_ValidFlagSuccess(t *testing.T) {
 		defer os.Remove(secondFile.Name())
 		firstFile.WriteString("line1\nline2\nline3\n")
 		firstFile.Close()
+		output := captureOutput(func() {
+			if err := run([]string{firstFile.Name(), secondFile.Name()}); err != nil {
+				t.Fatalf("run failed: %v", err)
+			}
+		})
+		expected := fmt.Sprintf("       3        3       18 %v\n       0        0        0 %v\n       3        3       18 total",
+			firstFile.Name(), secondFile.Name())
+		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+			t.Errorf("expected %q, got %q", expected, output)
+		}
+	})
 
-		err := run([]string{firstFile.Name(), secondFile.Name()})
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+	t.Run("read from stdin without flags", func(t *testing.T) {
+		cleanup := mockStdin("line1\nline2\nline3\n")
+		defer cleanup()
+
+		output := captureOutput(func() {
+			if err := run([]string{}); err != nil {
+				t.Fatalf("run failed: %v", err)
+			}
+		})
+
+		expected := "       3        3       18\n"
+		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+			t.Errorf("expected %q, got %q", expected, output)
+		}
+	})
+
+	t.Run("read from stdin with flags", func(t *testing.T) {
+		cleanup := mockStdin("line1\nline2\nline3\n")
+		defer cleanup()
+
+		output := captureOutput(func() {
+			if err := run([]string{"-l", "-w"}); err != nil {
+				t.Fatalf("run failed: %v", err)
+			}
+		})
+
+		expected := "       3        3\n"
+		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+			t.Errorf("expected %q, got %q", expected, output)
 		}
 	})
 }
@@ -284,4 +351,33 @@ func TestCountCharacter(t *testing.T) {
 			t.Errorf("expected 0 words, got %d", count)
 		}
 	})
+}
+
+func mockStdin(input string) func() {
+	file, _ := os.CreateTemp("", "stdin-mock")
+	file.WriteString(input)
+	file.Seek(0, 0)
+
+	origStdin := os.Stdin
+	os.Stdin = file
+
+	return func() {
+		os.Stdin = origStdin
+		file.Close()
+		os.Remove(file.Name())
+	}
+}
+
+func captureOutput(f func()) string {
+	var buf bytes.Buffer
+	stdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	f()
+
+	w.Close()
+	os.Stdout = stdout
+	buf.ReadFrom(r)
+	return buf.String()
 }

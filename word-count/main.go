@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 func validateFilePath(path string) error {
@@ -34,6 +35,17 @@ func countWords(path string) (int, error) {
 
 func countCharacters(path string) (int, error) {
 	return countWithScanner(path, bufio.ScanRunes)
+}
+
+func countWordsFrom(s string) int {
+	scanner := bufio.NewScanner(strings.NewReader(s))
+	scanner.Split(bufio.ScanWords)
+	words := 0
+
+	for scanner.Scan() {
+		words++
+	}
+	return words
 }
 
 func countWithScanner(path string, split bufio.SplitFunc) (int, error) {
@@ -78,7 +90,29 @@ func run(args []string) error {
 
 	filepaths := flags.Args()
 	if len(filepaths) == 0 {
-		return fmt.Errorf("please provide a file path")
+		scanner := bufio.NewScanner(os.Stdin)
+		lines, words, chars := 0, 0, 0
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			lines++
+			words += countWordsFrom(line)
+			chars += len(line) + 1
+		}
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("error reading stdin: %w", err)
+		}
+		if showAll || *showLines {
+			fmt.Printf("%8d ", lines)
+		}
+		if showAll || *showWords {
+			fmt.Printf("%8d ", words)
+		}
+		if showAll || *showChars {
+			fmt.Printf("%8d ", chars)
+		}
+		fmt.Println()
+		return nil
 	}
 
 	totalLines, totalWords, totalChars := 0, 0, 0
@@ -113,7 +147,7 @@ func run(args []string) error {
 			if err != nil {
 				return fmt.Errorf("%w", err)
 			}
-			totalChars += totalChars
+			totalChars += chars
 			fileResults[index].chars = chars
 		}
 	}
