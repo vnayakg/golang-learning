@@ -9,35 +9,6 @@ import (
 	"testing"
 )
 
-func TestCountLines(t *testing.T) {
-	t.Run("file with multiple lines", func(t *testing.T) {
-		content := "line1\nline2\nline3\n"
-		tmpFile := createTempFile(t, content)
-		defer os.Remove(tmpFile)
-
-		count, err := countLines(tmpFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if count != 3 {
-			t.Errorf("expected 3 lines, got %d", count)
-		}
-	})
-
-	t.Run("empty file", func(t *testing.T) {
-		tmpFile := createTempFile(t, "")
-		defer os.Remove(tmpFile)
-
-		count, err := countLines(tmpFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if count != 0 {
-			t.Errorf("expected 0 lines, got %d", count)
-		}
-	})
-}
-
 func TestValidateFilePath_FileDoesNotExist(t *testing.T) {
 	path := "this_file_does_not_exist.txt"
 	err := validateFilePath(path)
@@ -47,26 +18,6 @@ func TestValidateFilePath_FileDoesNotExist(t *testing.T) {
 	expected := "this_file_does_not_exist.txt: no such file exist"
 	if err.Error() != expected {
 		t.Errorf("expected file not exist error, got: %v", err)
-	}
-}
-
-func TestCountWithScanner_PermissionDenied(t *testing.T) {
-	tmpFile := createTempFile(t, "some content\n")
-	defer os.Remove(tmpFile)
-
-	err := os.Chmod(tmpFile, 0200)
-	if err != nil {
-		t.Fatalf("failed to chmod: %v", err)
-	}
-	defer os.Chmod(tmpFile, 0600)
-
-	_, err = countItems(tmpFile, bufio.ScanLines)
-	if err == nil {
-		t.Fatal("expected permission error, got nil")
-	}
-	expected := fmt.Sprintf("%v: permission denied", tmpFile)
-	if expected != err.Error() {
-		t.Errorf("expected permission error, got: %v", err)
 	}
 }
 
@@ -265,62 +216,26 @@ func TestRun(t *testing.T) {
 	})
 }
 
-func TestCountWords(t *testing.T) {
-	t.Run("file with multiple words", func(t *testing.T) {
-		content := "line1 line2\nline3\n"
-		tmpFile := createTempFile(t, content)
-		defer os.Remove(tmpFile)
+func TestCountFromReader(t *testing.T) {
+	tmpfile := createTempFile(t, "\tline1\nline2\nline3\n")
+	file, _ := os.Open(tmpfile)
+	defer os.Remove(tmpfile)
+	defer file.Close()
 
-		count, err := countWords(tmpFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if count != 3 {
-			t.Errorf("expected 3 words, got %d", count)
-		}
-	})
+	lines, words, chars, err := countFromReader(bufio.NewReader(file))
 
-	t.Run("empty file", func(t *testing.T) {
-		tmpFile := createTempFile(t, "")
-		defer os.Remove(tmpFile)
-
-		count, err := countWords(tmpFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if count != 0 {
-			t.Errorf("expected 0 words, got %d", count)
-		}
-	})
-}
-
-func TestCountCharacter(t *testing.T) {
-	t.Run("file with multiple characters", func(t *testing.T) {
-		content := "line1 line2\nline3 \n "
-		tmpFile := createTempFile(t, content)
-		defer os.Remove(tmpFile)
-
-		count, err := countCharacters(tmpFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if count != 20 {
-			t.Errorf("expected 17 characters, got %d", count)
-		}
-	})
-
-	t.Run("empty file", func(t *testing.T) {
-		tmpFile := createTempFile(t, "")
-		defer os.Remove(tmpFile)
-
-		count, err := countCharacters(tmpFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if count != 0 {
-			t.Errorf("expected 0 words, got %d", count)
-		}
-	})
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if lines != 3 {
+		t.Errorf("expected lines %v, got %v", 3, lines)
+	}
+	if words != 3 {
+		t.Errorf("expected words %v, got %v", 3, words)
+	}
+	if chars != 19 {
+		t.Errorf("expected chars %v, got %v", 19, chars)
+	}
 }
 
 func mockStdin(input string) func() {

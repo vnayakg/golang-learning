@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -17,6 +18,47 @@ type FileResult struct {
 
 type Options struct {
 	showAll, showLines, showWords, showChars bool
+}
+
+const BUF_SIZE = 16*1024
+
+func countFromReader(reader *bufio.Reader) (lines, words, chars int, err error) {
+	var inWord bool
+
+	buf := make([]byte, BUF_SIZE)
+	for {
+		n, err := reader.Read(buf)
+		if n > 0 {
+			data := buf[:n]
+			chars += n
+			for _, b := range data {
+				if b == '\n' {
+					lines++
+				}
+				if isSpace(b) {
+					if inWord {
+						inWord = false
+					}
+				} else {
+					if !inWord {
+						words++
+						inWord = true
+					}
+				}
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return 0, 0, 0, err
+		}
+	}
+	return lines, words, chars, nil
+}
+
+func isSpace(b byte) bool {
+	return b == ' ' || b == '\n' || b == '\t' || b == '\v' || b == '\r'
 }
 
 func validateFilePath(path string) error {
@@ -35,18 +77,6 @@ func validateFilePath(path string) error {
 	return nil
 }
 
-func countLines(path string) (int, error) {
-	return countItems(path, bufio.ScanLines)
-}
-
-func countWords(path string) (int, error) {
-	return countItems(path, bufio.ScanWords)
-}
-
-func countCharacters(path string) (int, error) {
-	return countItems(path, bufio.ScanRunes)
-}
-
 func countWordsFrom(s string) int {
 	scanner := bufio.NewScanner(strings.NewReader(s))
 	scanner.Split(bufio.ScanWords)
@@ -56,30 +86,6 @@ func countWordsFrom(s string) int {
 		words++
 	}
 	return words
-}
-
-func countItems(path string, split bufio.SplitFunc) (int, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		if os.IsPermission(err) {
-			return 0, fmt.Errorf("%v: permission denied", path)
-		}
-		return 0, fmt.Errorf("error opening file: %w", err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	scanner.Split(split)
-
-	count := 0
-	for scanner.Scan() {
-		count++
-	}
-
-	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error scanning file: %w", err)
-	}
-	return count, nil
 }
 
 func parseFlags(args []string) (*Options, []string, error) {
@@ -129,35 +135,6 @@ func processSTDIN(options *Options) error {
 	return nil
 }
 
-func countFromFile(filepath string, options *Options) (*FileResult, error) {
-	fileResult := &FileResult{path: filepath}
-	lines, words, chars := 0, 0, 0
-	var err error
-
-	if options.showAll || options.showLines {
-		lines, err = countLines(filepath)
-		if err != nil {
-			return nil, fmt.Errorf("%w", err)
-		}
-		fileResult.lines = lines
-	}
-	if options.showAll || options.showWords {
-		words, err = countWords(filepath)
-		if err != nil {
-			return nil, fmt.Errorf("%w", err)
-		}
-		fileResult.words = words
-	}
-	if options.showAll || options.showChars {
-		chars, err = countCharacters(filepath)
-		if err != nil {
-			return nil, fmt.Errorf("%w", err)
-		}
-		fileResult.chars = chars
-	}
-	return fileResult, nil
-}
-
 func processFiles(filepaths []string, options *Options) error {
 	totalLines, totalWords, totalChars := 0, 0, 0
 	fileResults := make([]FileResult, 0, len(filepaths))
@@ -167,15 +144,20 @@ func processFiles(filepaths []string, options *Options) error {
 			return err
 		}
 
-		result, err := countFromFile(filepath, options)
+		file, err := os.Open(filepath)
+		if err != nil {
+			return fmt.Errorf("error opening file: %w", err)
+		}
+		reader := bufio.NewReader(file)
+		lines, words, chars, err := countFromReader(reader)
 		if err != nil {
 			return err
 		}
-		totalLines += result.lines
-		totalWords += result.words
-		totalChars += result.chars
+		totalLines += lines
+		totalWords += words
+		totalChars += chars
 
-		fileResults = append(fileResults, *result)
+		fileResults = append(fileResults, FileResult{path: filepath, lines: lines, words: words, chars: chars})
 	}
 
 	for _, result := range fileResults {
