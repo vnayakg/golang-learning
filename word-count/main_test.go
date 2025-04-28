@@ -129,134 +129,104 @@ func TestRun_InvalidFlag(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	t.Run("for valid line flag", func(t *testing.T) {
-		tmpfile, err := os.CreateTemp("", "example.txt")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(tmpfile.Name())
-		tmpfile.WriteString("line1\nline2\nline3\n")
-		tmpfile.Close()
+		tmpfile := createTempFile(t, "line1\nline2\nline3\n")
+		defer os.Remove(tmpfile)
 
 		output := captureOutput(func() {
-			if err := run([]string{"-l", tmpfile.Name()}); err != nil {
+			if err := run([]string{"-l", tmpfile}); err != nil {
 				t.Fatalf("run failed: %v", err)
 			}
 		})
 
 		expected := fmt.Sprintf("       3 %v\n",
-			tmpfile.Name())
+			tmpfile)
 		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
 			t.Errorf("expected %q, got %q", expected, output)
 		}
 	})
 
 	t.Run("for valid word flag", func(t *testing.T) {
-		tmpfile, err := os.CreateTemp("", "example.txt")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(tmpfile.Name())
-		tmpfile.WriteString("line1\nline2\nline3\n")
-		tmpfile.Close()
+		tmpfile := createTempFile(t, "line1\nline2\nline3\n")
+		defer os.Remove(tmpfile)
 
 		output := captureOutput(func() {
-			if err := run([]string{"-w", tmpfile.Name()}); err != nil {
+			if err := run([]string{"-w", tmpfile}); err != nil {
 				t.Fatalf("run failed: %v", err)
 			}
 		})
 
 		expected := fmt.Sprintf("       3 %v\n",
-			tmpfile.Name())
+			tmpfile)
 		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
 			t.Errorf("expected %q, got %q", expected, output)
 		}
 	})
 
 	t.Run("for valid character flag", func(t *testing.T) {
-		tmpfile, err := os.CreateTemp("", "example.txt")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(tmpfile.Name())
-		tmpfile.WriteString("line1\nline2\nline3\n")
-		tmpfile.Close()
+		tmpfile := createTempFile(t, "line1\nline2\nline3\n")
+		defer os.Remove(tmpfile)
 
 		output := captureOutput(func() {
-			if err := run([]string{"-c", tmpfile.Name()}); err != nil {
+			if err := run([]string{"-c", tmpfile}); err != nil {
 				t.Fatalf("run failed: %v", err)
 			}
 		})
 
 		expected := fmt.Sprintf("       18 %v\n",
-			tmpfile.Name())
+			tmpfile)
 		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
 			t.Errorf("expected %q, got %q", expected, output)
 		}
 	})
 
 	t.Run("for missing flag", func(t *testing.T) {
-		tmpfile, err := os.CreateTemp("", "example.txt")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(tmpfile.Name())
-		tmpfile.WriteString("line1\nline2\nline3\n")
-		tmpfile.Close()
+		tmpfile := createTempFile(t, "line1\nline2\nline3\n")
+		defer os.Remove(tmpfile)
 
 		output := captureOutput(func() {
-			if err := run([]string{tmpfile.Name()}); err != nil {
+			if err := run([]string{tmpfile}); err != nil {
 				t.Fatalf("run failed: %v", err)
 			}
 		})
 
 		expected := fmt.Sprintf("       3        3       18 %v\n",
-			tmpfile.Name())
+			tmpfile)
 		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
 			t.Errorf("expected %q, got %q", expected, output)
 		}
 	})
 
 	t.Run("multiple files with flags", func(t *testing.T) {
-		firstFile, firstErr := os.CreateTemp("", "first.txt")
-		secondFile, secondErr := os.CreateTemp("", "second.txt")
-		if firstErr != nil || secondErr != nil {
-			t.Fatal()
-		}
-		defer os.Remove(firstFile.Name())
-		defer os.Remove(secondFile.Name())
-		firstFile.WriteString("line1\nline2\nline3\n")
-		firstFile.Close()
+		firstFile := createTempFile(t, "line1\nline2\nline3\n")
+		secondFile := createTempFile(t, "")
+		defer os.Remove(firstFile)
+		defer os.Remove(secondFile)
 
 		output := captureOutput(func() {
-			if err := run([]string{"-l", "-w", firstFile.Name(), secondFile.Name()}); err != nil {
+			if err := run([]string{"-l", "-w", firstFile, secondFile}); err != nil {
 				t.Fatalf("run failed: %v", err)
 			}
 		})
 		expected := fmt.Sprintf("       3        3 %v\n       0        0 %v\n       3        3 total",
-			firstFile.Name(), secondFile.Name())
+			firstFile, secondFile)
 		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
 			t.Errorf("expected %q, got %q", expected, output)
 		}
-
 	})
 
 	t.Run("multiple files without flags", func(t *testing.T) {
-		firstFile, firstErr := os.CreateTemp("", "first.txt")
-		secondFile, secondErr := os.CreateTemp("", "second.txt")
-		if firstErr != nil || secondErr != nil {
-			t.Fatal()
-		}
-		defer os.Remove(firstFile.Name())
-		defer os.Remove(secondFile.Name())
-		firstFile.WriteString("line1\nline2\nline3\n")
-		firstFile.Close()
+		firstFile := createTempFile(t, "line1\nline2\nline3\n")
+		secondFile := createTempFile(t, "")
+		defer os.Remove(firstFile)
+		defer os.Remove(secondFile)
+
 		output := captureOutput(func() {
-			if err := run([]string{firstFile.Name(), secondFile.Name()}); err != nil {
+			if err := run([]string{firstFile, secondFile}); err != nil {
 				t.Fatalf("run failed: %v", err)
 			}
 		})
 		expected := fmt.Sprintf("       3        3       18 %v\n       0        0        0 %v\n       3        3       18 total",
-			firstFile.Name(), secondFile.Name())
+			firstFile, secondFile)
 		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
 			t.Errorf("expected %q, got %q", expected, output)
 		}
