@@ -75,41 +75,13 @@ func validateFilePath(path string) error {
 
 var processFiles = func(paths []string) ([]*FileResult, error) {
 	jobs := make(chan string, len(paths))
-	results := make(chan FileResult, len(paths))
+	results := make(chan *FileResult, len(paths))
 	numWorkers := runtime.NumCPU()
 	var wg sync.WaitGroup
 
 	for range numWorkers {
 		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-			for path := range jobs {
-				result := FileResult{path: path}
-				if err := validateFilePath(path); err != nil {
-					result.err = err
-					return
-				}
-				file, err := os.Open(path)
-				if err != nil {
-					result.err = fmt.Errorf("error opening file: %w", err)
-					return
-				}
-				defer file.Close()
-				reader := bufio.NewReader(file)
-				lines, words, chars, err := countFileItems(reader)
-
-				if err != nil {
-					result.err = err
-					return
-				} else {
-					result.lines = lines
-					result.words = words
-					result.chars = chars
-				}
-				results <- result
-			}
-		}()
+		go worker(jobs, &wg, results)
 	}
 
 	for _, path := range paths {
@@ -123,23 +95,45 @@ var processFiles = func(paths []string) ([]*FileResult, error) {
 	}()
 
 	var fileResults []*FileResult
-	var errs []error
 	for result := range results {
-		if result.err != nil {
-			errs = append(errs, result.err)
-			continue
-		}
-		fileResults = append(fileResults, &FileResult{
-			path:  result.path,
-			lines: result.lines,
-			words: result.words,
-			chars: result.chars,
-		})
-	}
-	for _, err := range errs {
-		fmt.Println(err)
+		fileResults = append(fileResults, result)
 	}
 	return fileResults, nil
+}
+
+func processFile(path string, results chan<- *FileResult) {
+	result := &FileResult{path: path}
+
+	if err := validateFilePath(path); err != nil {
+		result.err = err
+		results <- result
+		return
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		result.err = fmt.Errorf("opening file: %w", err)
+		results <- result
+		return
+	}
+	defer file.Close()
+
+	lines, words, chars, err := countFileItems(bufio.NewReader(file))
+	if err != nil {
+		result.err = err
+	} else {
+		result.lines = lines
+		result.words = words
+		result.chars = chars
+	}
+	results <- result
+}
+
+func worker(jobs <-chan string, wg *sync.WaitGroup, results chan<- *FileResult) {
+	defer wg.Done()
+	for path := range jobs {
+		processFile(path, results)
+	}
 }
 
 func processStdin() (*FileResult, error) {
