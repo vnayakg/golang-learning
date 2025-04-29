@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	"sync"
 )
 
@@ -22,7 +23,7 @@ type Options struct {
 
 const BUF_SIZE = 1024 * 1024
 
-func countFile(reader io.Reader) (lines, words, chars int, err error) {
+func countFileItems(reader io.Reader) (lines, words, chars int, err error) {
 	var inWord bool
 	buf := make([]byte, BUF_SIZE)
 
@@ -72,41 +73,77 @@ func validateFilePath(path string) error {
 	return nil
 }
 
-func processFiles(paths []string) ([]*FileResult, error) {
-	fileResults := make([]*FileResult, len(paths))
+var processFiles = func(paths []string) ([]*FileResult, error) {
+	jobs := make(chan string, len(paths))
+	results := make(chan FileResult, len(paths))
+	numWorkers := runtime.NumCPU()
 	var wg sync.WaitGroup
 
-	for index, path := range paths {
+	for range numWorkers {
 		wg.Add(1)
-		go func() error {
-			if err := validateFilePath(path); err != nil {
-				return err
-			}
 
-			file, err := os.Open(path)
-			if err != nil {
-				return fmt.Errorf("error opening file: %w", err)
-			}
-			defer file.Close()
-			reader := bufio.NewReader(file)
-			lines, words, chars, err := countFile(reader)
-
-			if err != nil {
-				return err
-			}
-
-			fileResults[index] = &FileResult{path: path, lines: lines, words: words, chars: chars}
+		go func() {
 			defer wg.Done()
-			return nil
+			for path := range jobs {
+				result := FileResult{path: path}
+				if err := validateFilePath(path); err != nil {
+					result.err = err
+					return
+				}
+				file, err := os.Open(path)
+				if err != nil {
+					result.err = fmt.Errorf("error opening file: %w", err)
+					return
+				}
+				defer file.Close()
+				reader := bufio.NewReader(file)
+				lines, words, chars, err := countFileItems(reader)
+
+				if err != nil {
+					result.err = err
+					return
+				} else {
+					result.lines = lines
+					result.words = words
+					result.chars = chars
+				}
+				results <- result
+			}
 		}()
 	}
-	wg.Wait()
 
+	for _, path := range paths {
+		jobs <- path
+	}
+	close(jobs)
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var fileResults []*FileResult
+	var errs []error
+	for result := range results {
+		if result.err != nil {
+			errs = append(errs, result.err)
+			continue
+		}
+		fileResults = append(fileResults, &FileResult{
+			path:  result.path,
+			lines: result.lines,
+			words: result.words,
+			chars: result.chars,
+		})
+	}
+	for _, err := range errs {
+		fmt.Println(err)
+	}
 	return fileResults, nil
 }
 
 func processStdin() (*FileResult, error) {
-	lines, words, chars, err := countFile(os.Stdin)
+	lines, words, chars, err := countFileItems(os.Stdin)
 
 	if err != nil {
 		return nil, fmt.Errorf("error reading stdin: %w", err)

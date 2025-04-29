@@ -153,6 +153,13 @@ func TestRun(t *testing.T) {
 		defer os.Remove(firstFile)
 		defer os.Remove(secondFile)
 
+		originalProcessFiles := processFiles
+		processFiles = func(paths []string) ([]*FileResult, error) {
+
+			return []*FileResult{{firstFile, 3, 3, 18, nil},
+				{secondFile, 0, 0, 0, nil}}, nil
+		}
+
 		output := captureOutput(func() {
 			if err := run([]string{"-l", "-w", firstFile, secondFile}); err != nil {
 				t.Fatalf("run failed: %v", err)
@@ -163,6 +170,7 @@ func TestRun(t *testing.T) {
 		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
 			t.Errorf("expected %q, got %q", expected, output)
 		}
+		processFiles = originalProcessFiles
 	})
 
 	t.Run("multiple files without flags", func(t *testing.T) {
@@ -171,16 +179,24 @@ func TestRun(t *testing.T) {
 		defer os.Remove(firstFile)
 		defer os.Remove(secondFile)
 
+		originalProcessFiles := processFiles
+		processFiles = func(paths []string) ([]*FileResult, error) {
+
+			return []*FileResult{{firstFile, 3, 3, 18, nil},
+				{secondFile, 0, 0, 0, nil}}, nil
+		}
+
 		output := captureOutput(func() {
 			if err := run([]string{firstFile, secondFile}); err != nil {
 				t.Fatalf("run failed: %v", err)
 			}
 		})
-		expected := fmt.Sprintf("       3        3       18 %v\n       0        0        0 %v\n       3        3       18 total",
+		expected := fmt.Sprintf("       3        3       18 %v\n       0        0        0 %v\n       3        3       18 total\n",
 			firstFile, secondFile)
 		if strings.TrimSpace(output) != strings.TrimSpace(expected) {
 			t.Errorf("expected %q, got %q", expected, output)
 		}
+		processFiles = originalProcessFiles
 	})
 
 	t.Run("read from stdin without flags", func(t *testing.T) {
@@ -216,13 +232,13 @@ func TestRun(t *testing.T) {
 	})
 }
 
-func TestCountFromReader(t *testing.T) {
+func TestCountFile(t *testing.T) {
 	tmpfile := createTempFile(t, "\tline1\nline2\nline3\n")
 	file, _ := os.Open(tmpfile)
 	defer os.Remove(tmpfile)
 	defer file.Close()
 
-	lines, words, chars, err := countFile(bufio.NewReader(file))
+	lines, words, chars, err := countFileItems(bufio.NewReader(file))
 
 	if err != nil {
 		t.Fatalf("run failed: %v", err)
@@ -235,6 +251,103 @@ func TestCountFromReader(t *testing.T) {
 	}
 	if chars != 19 {
 		t.Errorf("expected chars %v, got %v", 19, chars)
+	}
+}
+
+func TestProcessFilesWithWorkerPool_SingleFile(t *testing.T) {
+	content := "hello world\nthis is a test\n"
+	path := createTempFile(t, content)
+	defer os.Remove(path)
+
+	results, err := processFiles([]string{path})
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(results))
+	}
+
+	res := results[0]
+	expectedLines := 2
+	expectedWords := 6
+	expectedChars := len(content)
+	if res.lines != expectedLines {
+		t.Errorf("Expected %d lines, got %d", expectedLines, res.lines)
+	}
+	if res.words != expectedWords {
+		t.Errorf("Expected %d words, got %d", expectedWords, res.words)
+	}
+	if res.chars != expectedChars {
+		t.Errorf("Expected %d chars, got %d", expectedChars, res.chars)
+	}
+}
+
+func TestProcessFilesWithWorkerPool_MultipleFiles(t *testing.T) {
+	content1 := "line one\nline two"
+	content2 := "a b c d\ne f"
+	path1 := createTempFile(t, content1)
+	path2 := createTempFile(t, content2)
+	defer os.Remove(path1)
+	defer os.Remove(path2)
+
+	results, err := processFiles([]string{path1, path2})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("Expected 2 results, got %d", len(results))
+	}
+}
+func TestPrintResult_AllFlags(t *testing.T) {
+	options := &Options{showLines: true, showWords: true, showChars: true}
+	expected := fmt.Sprintf("%8d %8d %8d %s\n", 2, 5, 25, "test.txt")
+
+	output := captureOutput(func() {
+		printResult(2, 5, 25, "test.txt", options)
+	})
+
+	if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+		t.Errorf("Expected output:\n%q\nGot:\n%q", expected, output)
+	}
+}
+
+func TestPrintResult_OnlyLines(t *testing.T) {
+	options := &Options{showLines: true}
+	expected := fmt.Sprintf("%8d %s\n", 10, "file.go")
+
+	output := captureOutput(func() {
+		printResult(10, 20, 30, "file.go", options)
+	})
+
+	if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+		t.Errorf("Expected output:\n%q\nGot:\n%q", expected, output)
+	}
+}
+
+func TestPrintResult_OnlyWords(t *testing.T) {
+	options := &Options{showWords: true}
+	expected := fmt.Sprintf("%8d %s\n", 42, "abc.txt")
+
+	output := captureOutput(func() {
+		printResult(0, 42, 0, "abc.txt", options)
+	})
+
+	if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+		t.Errorf("Expected output:\n%q\nGot:\n%q", expected, output)
+	}
+}
+
+func TestPrintResult_OnlyChars(t *testing.T) {
+	options := &Options{showChars: true}
+	expected := fmt.Sprintf("%8d %s\n", 100, "log.txt")
+
+	output := captureOutput(func() {
+		printResult(0, 0, 100, "log.txt", options)
+	})
+
+	if strings.TrimSpace(output) != strings.TrimSpace(expected) {
+		t.Errorf("Expected output:\n%q\nGot:\n%q", expected, output)
 	}
 }
 
