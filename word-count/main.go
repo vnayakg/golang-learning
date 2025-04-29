@@ -17,7 +17,7 @@ type FileResult struct {
 }
 
 type Options struct {
-	showAll, showLines, showWords, showChars bool
+	showLines, showWords, showChars bool
 }
 
 const BUF_SIZE = 1024 * 1024
@@ -72,60 +72,18 @@ func validateFilePath(path string) error {
 	return nil
 }
 
-func parseFlags(args []string) (*Options, []string, error) {
-	flags := flag.NewFlagSet("wc", flag.ContinueOnError)
-	showLines := flags.Bool("l", false, "Count lines")
-	showWords := flags.Bool("w", false, "Count words")
-	showChars := flags.Bool("c", false, "Count characters")
-	if err := flags.Parse(args); err != nil {
-		return nil, nil, err
-	}
-	showAll := !*showLines && !*showWords && !*showChars
-
-	options := Options{showAll: showAll,
-		showLines: *showLines,
-		showWords: *showWords,
-		showChars: *showChars}
-	return &options, flags.Args(), nil
-}
-
-func printResult(lines, words, chars int, path string, options *Options) {
-	if options.showAll || options.showLines {
-		fmt.Printf("%8d ", lines)
-	}
-	if options.showAll || options.showWords {
-		fmt.Printf("%8d ", words)
-	}
-	if options.showAll || options.showChars {
-		fmt.Printf("%8d ", chars)
-	}
-	fmt.Printf("%s\n", path)
-}
-
-func processStdin(options *Options) error {
-	lines, words, chars, err := countFile(os.Stdin)
-
-	if err != nil {
-		return fmt.Errorf("error reading stdin: %w", err)
-	}
-	printResult(lines, words, chars, "\n", options)
-	return nil
-}
-
-func processFiles(filepaths []string, options *Options) error {
-	totalLines, totalWords, totalChars := 0, 0, 0
-	fileResults := make([]FileResult, len(filepaths))
+func processFiles(paths []string) ([]*FileResult, error) {
+	fileResults := make([]*FileResult, len(paths))
 	var wg sync.WaitGroup
-	var mu sync.Mutex
 
-	for index, filepath := range filepaths {
+	for index, path := range paths {
 		wg.Add(1)
 		go func() error {
-			if err := validateFilePath(filepath); err != nil {
+			if err := validateFilePath(path); err != nil {
 				return err
 			}
 
-			file, err := os.Open(filepath)
+			file, err := os.Open(path)
 			if err != nil {
 				return fmt.Errorf("error opening file: %w", err)
 			}
@@ -136,18 +94,89 @@ func processFiles(filepaths []string, options *Options) error {
 			if err != nil {
 				return err
 			}
-			mu.Lock()
-			totalLines += lines
-			totalWords += words
-			totalChars += chars
-			mu.Unlock()
 
-			fileResults[index] = FileResult{path: filepath, lines: lines, words: words, chars: chars}
+			fileResults[index] = &FileResult{path: path, lines: lines, words: words, chars: chars}
 			defer wg.Done()
 			return nil
 		}()
 	}
 	wg.Wait()
+
+	return fileResults, nil
+}
+
+func processStdin() (*FileResult, error) {
+	lines, words, chars, err := countFile(os.Stdin)
+
+	if err != nil {
+		return nil, fmt.Errorf("error reading stdin: %w", err)
+	}
+	return &FileResult{path: "", lines: lines, words: words, chars: chars}, nil
+}
+
+func printResult(lines, words, chars int, path string, options *Options) {
+	if options.showLines {
+		fmt.Printf("%8d ", lines)
+	}
+	if options.showWords {
+		fmt.Printf("%8d ", words)
+	}
+	if options.showChars {
+		fmt.Printf("%8d ", chars)
+	}
+	fmt.Printf("%s\n", path)
+}
+
+func calculateTotal(results []*FileResult) *FileResult {
+	total := &FileResult{path: "total"}
+	for _, result := range results {
+		if result != nil {
+			total.lines += result.lines
+			total.words += result.words
+			total.chars += result.chars
+		}
+	}
+	return total
+}
+
+func parseFlags(args []string) (*Options, []string, error) {
+	options := Options{}
+	flags := flag.NewFlagSet("wc", flag.ContinueOnError)
+	flags.BoolVar(&options.showLines, "l", false, "Count lines")
+	flags.BoolVar(&options.showWords, "w", false, "Count words")
+	flags.BoolVar(&options.showChars, "c", false, "Count characters")
+
+	if err := flags.Parse(args); err != nil {
+		return nil, nil, err
+	}
+
+	if !options.showLines && !options.showWords && !options.showChars {
+		options.showLines = true
+		options.showWords = true
+		options.showChars = true
+	}
+	return &options, flags.Args(), nil
+}
+
+func run(args []string) error {
+	options, paths, err := parseFlags(args)
+	if err != nil {
+		return fmt.Errorf("error parsing arguments: %w", err)
+	}
+
+	if len(paths) == 0 {
+		result, err := processStdin()
+		if err != nil {
+			return fmt.Errorf("error processing stdin: %w", err)
+		}
+		printResult(result.lines, result.words, result.chars, "\n", options)
+		return nil
+	}
+
+	fileResults, err := processFiles(paths)
+	if err != nil {
+		return fmt.Errorf("error processing file: %w", err)
+	}
 
 	for _, result := range fileResults {
 		if result.err != nil {
@@ -157,23 +186,10 @@ func processFiles(filepaths []string, options *Options) error {
 		printResult(result.lines, result.words, result.chars, result.path, options)
 	}
 
-	if len(filepaths) > 1 {
-		printResult(totalLines, totalWords, totalChars, "total", options)
+	if len(paths) > 1 {
+		result := calculateTotal(fileResults)
+		printResult(result.lines, result.words, result.chars, result.path, options)
 	}
-	return nil
-}
-
-func run(args []string) error {
-	options, filepaths, err := parseFlags(args)
-	if err != nil {
-		return fmt.Errorf("error parsing arguments: %w", err)
-	}
-
-	if len(filepaths) == 0 {
-		processStdin(options)
-		return nil
-	}
-	processFiles(filepaths, options)
 	return nil
 }
 
