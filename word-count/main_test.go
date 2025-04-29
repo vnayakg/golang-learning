@@ -222,7 +222,7 @@ func TestCountFromReader(t *testing.T) {
 	defer os.Remove(tmpfile)
 	defer file.Close()
 
-	lines, words, chars, err := countFromReader(bufio.NewReader(file))
+	lines, words, chars, err := countFile(bufio.NewReader(file))
 
 	if err != nil {
 		t.Fatalf("run failed: %v", err)

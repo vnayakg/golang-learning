@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 	"sync"
 )
 
@@ -23,10 +22,10 @@ type Options struct {
 
 const BUF_SIZE = 1024 * 1024
 
-func countFromReader(reader *bufio.Reader) (lines, words, chars int, err error) {
+func countFile(reader io.Reader) (lines, words, chars int, err error) {
 	var inWord bool
-
 	buf := make([]byte, BUF_SIZE)
+
 	for {
 		n, err := reader.Read(buf)
 		if n > 0 {
@@ -37,25 +36,20 @@ func countFromReader(reader *bufio.Reader) (lines, words, chars int, err error) 
 					lines++
 				}
 				if isSpace(b) {
-					if inWord {
-						inWord = false
-					}
-				} else {
-					if !inWord {
-						words++
-						inWord = true
-					}
+					inWord = false
+				} else if !inWord {
+					words++
+					inWord = true
 				}
 			}
 		}
 		if err != nil {
 			if err == io.EOF {
-				break
+				return lines, words, chars, nil
 			}
 			return 0, 0, 0, err
 		}
 	}
-	return lines, words, chars, nil
 }
 
 func isSpace(b byte) bool {
@@ -76,17 +70,6 @@ func validateFilePath(path string) error {
 		return fmt.Errorf("%v: is a directory", path)
 	}
 	return nil
-}
-
-func countWordsFrom(s string) int {
-	scanner := bufio.NewScanner(strings.NewReader(s))
-	scanner.Split(bufio.ScanWords)
-	words := 0
-
-	for scanner.Scan() {
-		words++
-	}
-	return words
 }
 
 func parseFlags(args []string) (*Options, []string, error) {
@@ -119,17 +102,10 @@ func printResult(lines, words, chars int, path string, options *Options) {
 	fmt.Printf("%s\n", path)
 }
 
-func processSTDIN(options *Options) error {
-	scanner := bufio.NewScanner(os.Stdin)
-	lines, words, chars := 0, 0, 0
+func processStdin(options *Options) error {
+	lines, words, chars, err := countFile(os.Stdin)
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		lines++
-		words += countWordsFrom(line)
-		chars += len(line) + 1
-	}
-	if err := scanner.Err(); err != nil {
+	if err != nil {
 		return fmt.Errorf("error reading stdin: %w", err)
 	}
 	printResult(lines, words, chars, "\n", options)
@@ -155,7 +131,7 @@ func processFiles(filepaths []string, options *Options) error {
 			}
 			defer file.Close()
 			reader := bufio.NewReader(file)
-			lines, words, chars, err := countFromReader(reader)
+			lines, words, chars, err := countFile(reader)
 
 			if err != nil {
 				return err
@@ -194,7 +170,7 @@ func run(args []string) error {
 	}
 
 	if len(filepaths) == 0 {
-		processSTDIN(options)
+		processStdin(options)
 		return nil
 	}
 	processFiles(filepaths, options)
