@@ -1,10 +1,17 @@
 import io
 import os
+import subprocess
 import sys
 import unittest
 import tempfile
 from pathlib import Path
-from grep import grep_in_file, MyGrepError, grep_in_stdin, write_output_to_file
+from grep import (
+    grep_in_file,
+    MyGrepError,
+    grep_in_stdin,
+    grep_recursive,
+    write_output_to_file,
+)
 
 
 class TestGrep(unittest.TestCase):
@@ -111,6 +118,52 @@ class TestGrep(unittest.TestCase):
         self.assertIn("File already exists", str(ctx.exception))
 
         os.remove(tmpfile_path)
+
+
+class TestGrepInDirectory(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.root = self.temp_dir.name
+
+        self.file1_path = os.path.join(self.root, "file1.txt")
+        with open(self.file1_path, "w") as f:
+            f.write("this is a test\nno match here\nanother test line\n")
+
+        nested_dir = os.path.join(self.root, "inner")
+        os.makedirs(nested_dir)
+
+        self.file2_path = os.path.join(nested_dir, "file2.txt")
+        with open(self.file2_path, "w") as f:
+            f.write("deep test line\nunrelated\n")
+
+        self.file3_path = os.path.join(self.root, "empty.txt")
+        with open(self.file3_path, "w") as f:
+            f.write("nothing interesting\n")
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_recursive_grep_matches(self):
+        expected = [
+            f"{self.file1_path}:this is a test",
+            f"{self.file1_path}:another test line",
+            f"{self.file2_path}:deep test line",
+        ]
+        result = grep_recursive("test", self.root)
+        self.assertEqual(sorted(result), sorted(expected))
+
+    def test_recursive_grep_case_sensitive(self):
+        result = grep_recursive("Test", self.root)
+        self.assertEqual(result, [])
+
+    def test_recursive_grep_case_insensitive(self):
+        expected = [
+            f"{self.file1_path}:this is a test",
+            f"{self.file1_path}:another test line",
+            f"{self.file2_path}:deep test line",
+        ]
+        result = grep_recursive("Test", self.root, is_case_sensitive=False)
+        self.assertEqual(sorted(result), sorted(expected))
 
 
 if __name__ == "__main__":

@@ -36,6 +36,22 @@ def grep_in_stdin(search_string: str, is_case_sensitive=True) -> list[str]:
     return grep(search_string, sys.stdin, is_case_sensitive)
 
 
+def grep_recursive(
+    search_string: str, root_dir: str, is_case_sensitive=True
+) -> list[str]:
+    matches = []
+    for dirpath, _, filenames in os.walk(root_dir):
+        for filename in filenames:
+            filepath = os.path.join(dirpath, filename)
+            try:
+                file_matches = grep_in_file(search_string, filepath, is_case_sensitive)
+                if file_matches:
+                    matches.extend([f"{filepath}:{line}" for line in file_matches])
+            except MyGrepError:
+                continue
+    return matches
+
+
 def write_output_to_file(output_lines: list[str], output_file: str):
     if os.path.exists(output_file):
         raise MyGrepError(f"{output_file}: File already exists")
@@ -68,6 +84,12 @@ def parse_args():
         nargs="?",
         help="Perform case insensitive matching. By default, it is case sensitive",
     )
+    parser.add_argument(
+        "-r",
+        "--recursive",
+        nargs="?",
+        help="Recursively search subdirectories listed",
+    )
 
     return parser.parse_args()
 
@@ -75,7 +97,13 @@ def parse_args():
 def main():
     args = parse_args()
     try:
-        if args.input_file:
+        if args.recursive:
+            if not args.input_file or not os.path.isdir(args.input_file):
+                raise MyGrepError("Recursive flag requires a directory path as input")
+            matches = grep_recursive(
+                args.search_string, args.input_file, args.ignorecase
+            )
+        elif args.input_file:
             matches = grep_in_file(args.search_string, args.input_file, args.ignorecase)
         else:
             matches = grep_in_stdin(args.search_string, args.ignorecase)
