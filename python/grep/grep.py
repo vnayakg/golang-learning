@@ -1,14 +1,14 @@
 import argparse
 import sys
 import os
-from typing import Iterable
+from typing import Iterable, TextIO
 
 
 class MyGrepError(Exception):
     pass
 
 
-def grep(search_string: str, file, is_case_sensitive=True) -> list[str]:
+def grep(search_string: str, file: TextIO, is_case_sensitive=True) -> list[str]:
     if is_case_sensitive:
         return [line.rstrip("\n") for line in file if search_string in line]
     return [line.rstrip("\n") for line in file if search_string.lower() in line.lower()]
@@ -36,7 +36,7 @@ def grep_in_stdin(search_string: str, is_case_sensitive=True) -> list[str]:
     return grep(search_string, sys.stdin, is_case_sensitive)
 
 
-def write_output_to_file(output_lines: str, output_file: str):
+def write_output_to_file(output_lines: list[str], output_file: str):
     if os.path.exists(output_file):
         raise MyGrepError(f"{output_file}: File already exists")
     try:
