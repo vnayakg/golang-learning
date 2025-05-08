@@ -1,3 +1,4 @@
+import argparse
 import sys
 import os
 from typing import Iterable
@@ -27,23 +28,29 @@ def grep_in_stdin(search_string: str, lines: Iterable[str]) -> list[str]:
     return [line.rstrip("\n") for line in lines if search_string in line]
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="A simple grep-like tool.")
+    parser.add_argument("search_string", help="The string to search for")
+    parser.add_argument(
+        "input_file",
+        nargs="?",
+        help="File to search in (optional; uses stdin if not provided)",
+    )
+
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     try:
-        if len(sys.argv) == 3:
-            search_string = sys.argv[1]
-            filename = sys.argv[2]
-            matches = grep_in_file(search_string, filename)
-            for line in matches:
-                print(line)
-        elif len(sys.argv) == 2:
-            search_string = sys.argv[1]
-            matches = grep_in_stdin(search_string, sys.stdin)
+        if args.input_file:
+            matches = grep_in_file(args.search_string, args.input_file)
             for line in matches:
                 print(line)
         else:
-            print("Usage: ./mygrep <search_string> <filename>", file=sys.stderr)
-            print("Usage: ./mygrep <search_string>", file=sys.stderr)
-            sys.exit(1)
+            matches = grep_in_stdin(args.search_string, sys.stdin)
+            for line in matches:
+                print(line)
 
     except MyGrepError as e:
         print(f"./mygrep: {e}", file=sys.stderr)
