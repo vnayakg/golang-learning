@@ -1,5 +1,6 @@
 import sys
 import os
+from typing import Iterable
 
 
 class MyGrepError(Exception):
@@ -22,18 +23,28 @@ def grep_in_file(search_string: str, filename: str) -> list[str]:
         raise MyGrepError(f"{filename}: {str(e)}")
 
 
+def grep_in_stdin(search_string: str, lines: Iterable[str]) -> list[str]:
+    return [line.rstrip("\n") for line in lines if search_string in line]
+
+
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: ./mygrep <search_string> <filename>", file=sys.stderr)
-        sys.exit(1)
-
-    search_string = sys.argv[1]
-    filename = sys.argv[2]
-
     try:
-        matches = grep_in_file(search_string, filename)
-        for line in matches:
-            print(line)
+        if len(sys.argv) == 3:
+            search_string = sys.argv[1]
+            filename = sys.argv[2]
+            matches = grep_in_file(search_string, filename)
+            for line in matches:
+                print(line)
+        elif len(sys.argv) == 2:
+            search_string = sys.argv[1]
+            matches = grep_in_stdin(search_string, sys.stdin)
+            for line in matches:
+                print(line)
+        else:
+            print("Usage: ./mygrep <search_string> <filename>", file=sys.stderr)
+            print("Usage: ./mygrep <search_string>", file=sys.stderr)
+            sys.exit(1)
+
     except MyGrepError as e:
         print(f"./mygrep: {e}", file=sys.stderr)
         sys.exit(1)

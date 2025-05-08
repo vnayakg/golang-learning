@@ -1,10 +1,12 @@
+import io
+import sys
 import unittest
 import tempfile
 from pathlib import Path
-from grep import grep_in_file, MyGrepError
+from grep import grep_in_file, MyGrepError, grep_in_stdin
 
 
-class TestMyGrep(unittest.TestCase):
+class TestGrep(unittest.TestCase):
 
     def setUp(self):
         self.test_dir = tempfile.TemporaryDirectory()
@@ -52,6 +54,25 @@ class TestMyGrep(unittest.TestCase):
             grep_in_file("search_string", str(restricted_file))
             self.assertIn("Permission denied", str(context.exception))
         restricted_file.chmod(0o644)
+
+    def test_stdin_search_matches(self):
+        test_input = io.StringIO("bar\nbarbazfoo\nFoobar\nfood\n")
+        original_stdin = sys.stdin
+        sys.stdin = test_input
+        
+        result = grep_in_stdin("foo", sys.stdin)
+
+        self.assertEqual(result, ["barbazfoo", "food"])        
+        sys.stdin = original_stdin
+
+    def test_stdin_no_match(self):
+        test_input = io.StringIO("bar\nbaz\nboo\n")
+        sys.stdin = test_input
+        
+        result = grep_in_stdin("random", sys.stdin)
+        
+        self.assertEqual(result, [])
+        sys.stdin = sys.__stdin__
 
 
 if __name__ == "__main__":
