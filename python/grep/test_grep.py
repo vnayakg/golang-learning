@@ -17,6 +17,7 @@ class TestGrep(unittest.TestCase):
             "I found the search_string in the file.\n"
             "Another line also contains the search_string.\n"
             "This line does not have anything.\n"
+            "Another line also contains the Search_String.\n"
         )
 
     def tearDown(self):
@@ -33,6 +34,14 @@ class TestGrep(unittest.TestCase):
         self.assertEqual(len(matches), 2)
         self.assertIn("I found the search_string in the file.", matches)
         self.assertIn("Another line also contains the search_string.", matches)
+
+    def test_multiple_matches_case_insensitive(self):
+        matches = grep_in_file("search_string", str(self.test_file_path), False)
+
+        self.assertEqual(len(matches), 3)
+        self.assertIn("I found the search_string in the file.", matches)
+        self.assertIn("Another line also contains the search_string.", matches)
+        self.assertIn("Another line also contains the Search_String.", matches)
 
     def test_file_not_exist(self):
         with self.assertRaises(MyGrepError) as context:
@@ -61,16 +70,26 @@ class TestGrep(unittest.TestCase):
         original_stdin = sys.stdin
         sys.stdin = test_input
 
-        result = grep_in_stdin("foo", sys.stdin)
+        result = grep_in_stdin("foo")
 
         self.assertEqual(result, ["barbazfoo", "food"])
+        sys.stdin = original_stdin
+
+    def test_stdin_search_matches_case_insensitive(self):
+        test_input = io.StringIO("bar\nbar\nfoo\nFoobar\nFoo\n")
+        original_stdin = sys.stdin
+        sys.stdin = test_input
+
+        result = grep_in_stdin("foo", False)
+
+        self.assertEqual(result, ["foo", "Foobar", "Foo"])
         sys.stdin = original_stdin
 
     def test_stdin_no_match(self):
         test_input = io.StringIO("bar\nbaz\nboo\n")
         sys.stdin = test_input
 
-        result = grep_in_stdin("random", sys.stdin)
+        result = grep_in_stdin("random")
 
         self.assertEqual(result, [])
         sys.stdin = sys.__stdin__
