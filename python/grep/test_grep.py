@@ -1,9 +1,10 @@
 import io
+import os
 import sys
 import unittest
 import tempfile
 from pathlib import Path
-from grep import grep_in_file, MyGrepError, grep_in_stdin
+from grep import grep_in_file, MyGrepError, grep_in_stdin, write_output_to_file
 
 
 class TestGrep(unittest.TestCase):
@@ -59,20 +60,38 @@ class TestGrep(unittest.TestCase):
         test_input = io.StringIO("bar\nbarbazfoo\nFoobar\nfood\n")
         original_stdin = sys.stdin
         sys.stdin = test_input
-        
+
         result = grep_in_stdin("foo", sys.stdin)
 
-        self.assertEqual(result, ["barbazfoo", "food"])        
+        self.assertEqual(result, ["barbazfoo", "food"])
         sys.stdin = original_stdin
 
     def test_stdin_no_match(self):
         test_input = io.StringIO("bar\nbaz\nboo\n")
         sys.stdin = test_input
-        
+
         result = grep_in_stdin("random", sys.stdin)
-        
+
         self.assertEqual(result, [])
         sys.stdin = sys.__stdin__
+
+    def test_output_file_exists(self):
+        output_lines = "bar\nbarbazfoo\nFoobar\nfood\n"
+
+        with self.assertRaises(MyGrepError) as context:
+            write_output_to_file(output_lines, self.test_file_path)
+            self.assertIn("File already exists", str(context.exception))
+
+    def test_output_file_success(self):
+        lines = ["match 1", "match 2"]
+        with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+            tmpfile_path = tmpfile.name
+
+        with self.assertRaises(MyGrepError) as ctx:
+            write_output_to_file(lines, tmpfile_path)
+        self.assertIn("File already exists", str(ctx.exception))
+
+        os.remove(tmpfile_path)
 
 
 if __name__ == "__main__":
