@@ -1,21 +1,58 @@
 import argparse
+from collections import deque
 import sys
 import os
-from typing import Iterable, TextIO
 
 
 class MyGrepError(Exception):
     pass
 
 
-def grep(search_string: str, file: TextIO, is_case_sensitive=True) -> list[str]:
-    if is_case_sensitive:
-        return [line.rstrip("\n") for line in file if search_string in line]
-    return [line.rstrip("\n") for line in file if search_string.lower() in line.lower()]
+def grep(
+    search_string: str,
+    file,
+    is_case_sensitive: bool = True,
+    after: int = 0,
+    before: int = 0,
+    count_only: bool = False,
+) -> list[str]:
+    result = []
+    buffer = deque(maxlen=before)
+    after_remaining = 0
+    count = 0
+
+    search = search_string if is_case_sensitive else search_string.lower()
+
+    for line in file:
+        line_to_match = line if is_case_sensitive else line.lower()
+
+        if search in line_to_match:
+            count += 1
+            if not count_only:
+                result.extend([l.rstrip("\n") for l in buffer])
+                buffer.clear()
+
+                result.append(line.rstrip("\n"))
+
+                after_remaining = after
+        elif after_remaining > 0:
+            result.append(line.rstrip("\n"))
+            after_remaining -= 1
+        else:
+            buffer.append(line)
+
+    if count_only:
+        return [str(count)]
+    return result
 
 
 def grep_in_file(
-    search_string: str, filename: str, is_case_sensitive=True
+    search_string: str,
+    filename: str,
+    is_case_sensitive=True,
+    after: int = 0,
+    before: int = 0,
+    count_only: bool = False,
 ) -> list[str]:
     if not os.path.exists(filename):
         raise MyGrepError(f"{filename}: open: No such file or directory")
@@ -25,26 +62,46 @@ def grep_in_file(
 
     try:
         with open(filename, "r", encoding="utf-8") as file:
-            return grep(search_string, file, is_case_sensitive)
+            return grep(
+                search_string, file, is_case_sensitive, after, before, count_only
+            )
     except PermissionError:
         raise MyGrepError(f"{filename}: Permission denied")
     except Exception as e:
         raise MyGrepError(f"{filename}: {str(e)}")
 
 
-def grep_in_stdin(search_string: str, is_case_sensitive=True) -> list[str]:
-    return grep(search_string, sys.stdin, is_case_sensitive)
+def grep_in_stdin(
+    search_string: str,
+    is_case_sensitive=True,
+    after: int = 0,
+    before: int = 0,
+    count_only: bool = False,
+) -> list[str]:
+    return grep(search_string, sys.stdin, is_case_sensitive, after, before, count_only)
 
 
 def grep_recursive(
-    search_string: str, root_dir: str, is_case_sensitive=True
+    search_string: str,
+    root_dir: str,
+    is_case_sensitive=True,
+    after: int = 0,
+    before: int = 0,
+    count_only: bool = False,
 ) -> list[str]:
     matches = []
     for dirpath, _, filenames in os.walk(root_dir):
         for filename in filenames:
             filepath = os.path.join(dirpath, filename)
             try:
-                file_matches = grep_in_file(search_string, filepath, is_case_sensitive)
+                file_matches = grep_in_file(
+                    search_string,
+                    filepath,
+                    is_case_sensitive,
+                    after,
+                    before,
+                    count_only,
+                )
                 if file_matches:
                     matches.extend([f"{filepath}:{line}" for line in file_matches])
             except MyGrepError:
@@ -89,6 +146,18 @@ def parse_args():
         "--recursive",
         action="store_true",
         help="Recursively search subdirectories listed",
+    )
+    parser.add_argument(
+        "-c",
+        "--count",
+        action="store_true",
+        help="Only a count of selected lines is written to standard output",
+    )
+    parser.add_argument(
+        "-A", "--after", type=int, default=0, help="Print N lines after each match"
+    )
+    parser.add_argument(
+        "-B", "--before", type=int, default=0, help="Print N lines before each match"
     )
 
     return parser.parse_args()

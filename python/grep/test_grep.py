@@ -6,6 +6,7 @@ import unittest
 import tempfile
 from pathlib import Path
 from grep import (
+    grep,
     grep_in_file,
     MyGrepError,
     grep_in_stdin,
@@ -118,6 +119,26 @@ class TestGrep(unittest.TestCase):
         self.assertIn("File already exists", str(ctx.exception))
 
         os.remove(tmpfile_path)
+
+    def test_before_and_after_lines(self):
+        test_input = io.StringIO("foo\nbar\nrandom\nfoo\nfoobar\nFoo\n")
+        original_stdin = sys.stdin
+        sys.stdin = test_input
+
+        result = grep("foo", sys.stdin, after=1, before=1)
+
+        self.assertEqual(result, ["foo", "bar", "random", "foo", "foobar", "Foo"])
+        sys.stdin = original_stdin
+
+    def test_count_only(self):
+        test_input = io.StringIO("foo\nbar\nrandom\nfoo\nfoobar\nFoo\n")
+        original_stdin = sys.stdin
+        sys.stdin = test_input
+
+        result = grep("foo", sys.stdin, count_only=True)
+
+        self.assertEqual(result, ["3"])
+        sys.stdin = original_stdin
 
 
 class TestGrepInDirectory(unittest.TestCase):
