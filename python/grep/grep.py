@@ -87,7 +87,7 @@ def parse_args():
     parser.add_argument(
         "-r",
         "--recursive",
-        nargs="?",
+        action="store_true",
         help="Recursively search subdirectories listed",
     )
 
