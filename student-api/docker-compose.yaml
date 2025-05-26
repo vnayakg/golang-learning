@@ -1,5 +1,5 @@
 services:
-  postgresql:
+  postgres:
     image: postgres:latest
     container_name: postgresql
     environment:
@@ -11,6 +11,16 @@ services:
     volumes:
       - postgresql_data:/var/lib/postgresql/data
     restart: always
+
+  app:
+    build:
+      context: .
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
 
 volumes:
   postgresql_data:
