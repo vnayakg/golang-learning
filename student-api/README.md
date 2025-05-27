@@ -101,6 +101,11 @@ make build
 make clean
 ```
 
+### Running with docker compose
+```bash
+make docker-up
+```
+
 ## Environment Variables
 
 - `DB_HOST`: PostgreSQL host (default: localhost)
@@ -109,3 +114,4 @@ make clean
 - `DB_PASSWORD`: PostgreSQL password (default: postgres)
 - `DB_NAME`: PostgreSQL database name (default: student_db)
 - `SERVER_PORT`: API server port (default: 8080)
+

@@ -13,14 +13,21 @@ WORKDIR $GOPATH/src/app/
 
 COPY . .
 
-RUN go mod download
-RUN go mod verify
+RUN go mod download \
+    go mod verify \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /main .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /main .
+FROM scratch
 
-FROM gcr.io/distroless/static-debian12
+COPY --from=base /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-COPY --from=base /main .
+COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo
+
+COPY --from=base /etc/passwd /etc/passwd
+
+COPY --from=base /main /main
+
+USER app-user
 
 EXPOSE 8080
 
